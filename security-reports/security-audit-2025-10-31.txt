@@ -1,0 +1,66 @@
+
+═══════════════════════════════════════════════════════════════
+🔐 RAPPORT DE SÉCURITÉ - NPM AUDIT
+═══════════════════════════════════════════════════════════════
+
+Date: 31/10/2025 04:45:41
+Environnement: production
+
+📊 RÉSUMÉ
+═══════════════════════════════════════════════════════════════
+Total de vulnérabilités: 16
+  🔴 Critical: 0
+  🟠 High: 6
+  🟡 Moderate: 0
+  🔵 Low: 2
+  ℹ️  Info: 0
+
+
+⚠️  VULNÉRABILITÉS DÉTECTÉES
+═══════════════════════════════════════════════════════════════
+
+🟠 bittorrent-tracker
+   Sévérité: HIGH
+   Via: ip
+
+🔵 global
+   Sévérité: LOW
+   Via: min-document
+
+🟠 ip
+   Sévérité: HIGH
+   Via: ip
+
+🟠 ip-set
+   Sévérité: HIGH
+   Via: ip
+
+🟠 load-ip-set
+   Sévérité: HIGH
+   Via: ip-set
+
+🔵 min-document
+   Sévérité: LOW
+   Via: min-document
+
+🟠 torrent-discovery
+   Sévérité: HIGH
+   Via: bittorrent-tracker
+
+🟠 webtorrent
+   Sévérité: HIGH
+   Via: load-ip-set → torrent-discovery
+
+
+📋 RECOMMANDATIONS
+═══════════════════════════════════════════════════════════════
+
+⚠️  Action requise immédiatement :
+   1. Exécutez: npm audit fix
+   2. Si des breaking changes, évaluez: npm audit fix --force
+   3. Consultez les advisories pour plus de détails
+
+
+═══════════════════════════════════════════════════════════════
+Rapport généré automatiquement par check-security.js
+═══════════════════════════════════════════════════════════════

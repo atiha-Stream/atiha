@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  # Serveur de transcodage HLS
+  hls-transcoder:
+    build:
+      context: ./torrentPlayer/content-transcoder-master
+      dockerfile: Dockerfile
+    container_name: atiha-hls-transcoder
+    ports:
+      - "8080:8080"  # Port principal
+      - "8081:8081"  # Port de probe
+      - "8082:8082"  # Port pprof
+      - "8083:8083"  # Port supplémentaire
+    environment:
+      - WEB_HOST=0.0.0.0
+      - WEB_PORT=8080
+      - PROBE_PORT=8081
+      - OUTPUT=/data
+      - PRESET=fast
+      - HLS_AAC_CODEC=libfdk_aac
+      - PLAYER=true
+    volumes:
+      - hls_data:/data
+      - hls_tmp:/tmp
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - atiha-network
+
+  # Application Atiha (optionnel - si vous voulez tout dans Docker)
+  atiha-app:
+    build: .
+    container_name: atiha-app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - HLS_TRANSCODER_URL=http://hls-transcoder:8080
+    depends_on:
+      hls-transcoder:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - atiha-network
+
+volumes:
+  hls_data:
+    driver: local
+  hls_tmp:
+    driver: local
+
+networks:
+  atiha-network:
+    driver: bridge

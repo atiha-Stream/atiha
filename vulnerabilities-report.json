@@ -1,0 +1,162 @@
+﻿{
+    "bittorrent-tracker":  {
+                               "name":  "bittorrent-tracker",
+                               "severity":  "high",
+                               "isDirect":  false,
+                               "via":  [
+                                           "ip"
+                                       ],
+                               "effects":  [
+                                               "torrent-discovery"
+                                           ],
+                               "range":  "\u003e=1.0.0",
+                               "nodes":  [
+                                             "node_modules/bittorrent-tracker"
+                                         ],
+                               "fixAvailable":  {
+                                                    "name":  "webtorrent",
+                                                    "version":  "0.7.3",
+                                                    "isSemVerMajor":  true
+                                                }
+                           },
+    "ip":  {
+               "name":  "ip",
+               "severity":  "high",
+               "isDirect":  false,
+               "via":  [
+                           {
+                               "source":  1101851,
+                               "name":  "ip",
+                               "dependency":  "ip",
+                               "title":  "ip SSRF improper categorization in isPublic",
+                               "url":  "https://github.com/advisories/GHSA-2p57-rm9w-gvfp",
+                               "severity":  "high",
+                               "cwe":  [
+                                           "CWE-918"
+                                       ],
+                               "cvss":  {
+                                            "score":  8.1,
+                                            "vectorString":  "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H"
+                                        },
+                               "range":  "\u003c=2.0.1"
+                           }
+                       ],
+               "effects":  [
+                               "bittorrent-tracker",
+                               "ip-set"
+                           ],
+               "range":  "*",
+               "nodes":  [
+                             "node_modules/ip"
+                         ],
+               "fixAvailable":  {
+                                    "name":  "webtorrent",
+                                    "version":  "0.7.3",
+                                    "isSemVerMajor":  true
+                                }
+           },
+    "ip-set":  {
+                   "name":  "ip-set",
+                   "severity":  "high",
+                   "isDirect":  false,
+                   "via":  [
+                               "ip"
+                           ],
+                   "effects":  [
+                                   "load-ip-set"
+                               ],
+                   "range":  "\u003c=2.2.0",
+                   "nodes":  [
+                                 "node_modules/ip-set"
+                             ],
+                   "fixAvailable":  true
+               },
+    "load-ip-set":  {
+                        "name":  "load-ip-set",
+                        "severity":  "high",
+                        "isDirect":  false,
+                        "via":  [
+                                    "ip-set"
+                                ],
+                        "effects":  [
+
+                                    ],
+                        "range":  "*",
+                        "nodes":  [
+                                      "node_modules/load-ip-set"
+                                  ],
+                        "fixAvailable":  true
+                    },
+    "min-document":  {
+                         "name":  "min-document",
+                         "severity":  "low",
+                         "isDirect":  false,
+                         "via":  [
+                                     {
+                                         "source":  1109626,
+                                         "name":  "min-document",
+                                         "dependency":  "min-document",
+                                         "title":  "min-document vulnerable to prototype pollution",
+                                         "url":  "https://github.com/advisories/GHSA-rx8g-88g5-qh64",
+                                         "severity":  "low",
+                                         "cwe":  [
+                                                     "CWE-1321"
+                                                 ],
+                                         "cvss":  {
+                                                      "score":  0,
+                                                      "vectorString":  null
+                                                  },
+                                         "range":  "\u003c=2.19.0"
+                                     }
+                                 ],
+                         "effects":  [
+
+                                     ],
+                         "range":  "\u003c=2.19.0",
+                         "nodes":  [
+                                       "node_modules/min-document"
+                                   ],
+                         "fixAvailable":  true
+                     },
+    "torrent-discovery":  {
+                              "name":  "torrent-discovery",
+                              "severity":  "high",
+                              "isDirect":  false,
+                              "via":  [
+                                          "bittorrent-tracker"
+                                      ],
+                              "effects":  [
+                                              "webtorrent"
+                                          ],
+                              "range":  "*",
+                              "nodes":  [
+                                            "node_modules/torrent-discovery"
+                                        ],
+                              "fixAvailable":  {
+                                                   "name":  "webtorrent",
+                                                   "version":  "0.7.3",
+                                                   "isSemVerMajor":  true
+                                               }
+                          },
+    "webtorrent":  {
+                       "name":  "webtorrent",
+                       "severity":  "high",
+                       "isDirect":  true,
+                       "via":  [
+                                   "load-ip-set",
+                                   "torrent-discovery"
+                               ],
+                       "effects":  [
+
+                                   ],
+                       "range":  "\u003e=0.8.0",
+                       "nodes":  [
+                                     "node_modules/webtorrent"
+                                 ],
+                       "fixAvailable":  {
+                                            "name":  "webtorrent",
+                                            "version":  "0.7.3",
+                                            "isSemVerMajor":  true
+                                        }
+                   }
+}

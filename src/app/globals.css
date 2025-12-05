@@ -1,0 +1,156 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Masquer la scrollbar tout en gardant la fonctionnalité de scroll */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* Internet Explorer 10+ */
+  scrollbar-width: none;  /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Safari et Chrome */
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 0, 0, 0;
+  }
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+  font-family: 'Inter', sans-serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+
+/* Force white color for country codes */
+.country-code-white {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+/* Styles pour l'orientation mobile du lecteur vidéo */
+.video-player-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* Mode paysage (landscape) - détection basée sur les dimensions pour fonctionner même si l'app est verrouillée en portrait */
+/* Utilise les dimensions plutôt que l'orientation pour garantir le fonctionnement en PWA */
+@media screen and (max-width: 1024px) and (min-aspect-ratio: 4/3) {
+  .video-player-container {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+  }
+  
+  .video-player-container video,
+  .video-player-container iframe {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  
+  /* S'assurer que les conteneurs enfants s'adaptent */
+  .video-player-container > div {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+/* Alternative : détection par orientation (fallback) */
+@media screen and (orientation: landscape) and (max-width: 1024px) {
+  .video-player-container {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+  }
+  
+  .video-player-container video,
+  .video-player-container iframe {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  
+  .video-player-container > div {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+/* Mode portrait (portrait) - mobile uniquement */
+@media screen and (max-width: 768px) and (max-aspect-ratio: 4/3) {
+  .video-player-container {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16/9;
+    max-height: 80vh;
+  }
+  
+  .video-player-container video,
+  .video-player-container iframe {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+}
+
+/* Alternative : détection par orientation portrait (fallback) */
+@media screen and (orientation: portrait) and (max-width: 768px) {
+  .video-player-container {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16/9;
+    max-height: 80vh;
+  }
+  
+  .video-player-container video,
+  .video-player-container iframe {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+}
+
+/* Desktop - garder le comportement normal */
+@media screen and (min-width: 1025px) {
+  .video-player-container {
+    width: 100%;
+    height: 100%;
+  }
+}
