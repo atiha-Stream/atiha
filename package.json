@@ -24,6 +24,7 @@
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
+    "db:studio:production": "powershell -ExecutionPolicy Bypass -File scripts/studio-production.ps1",
     "db:seed": "tsx scripts/seed-database.ts",
     "migrate:localStorage-to-db": "tsx scripts/migrate-localStorage-to-db.ts",
     "migrate:subscription-data": "tsx scripts/migrate-subscription-data-server.ts",
@@ -43,6 +44,7 @@
     "create:test-user:production": "tsx scripts/create-test-user-production.ts",
     "test:db:connection": "tsx scripts/test-database-connection.ts",
     "test:api:routes": "tsx scripts/test-api-routes.ts",
+    "create:initial-users:production": "tsx scripts/create-initial-users-production.ts",
     "vps:setup": "bash scripts/setup-vps.sh",
     "env:setup": "powershell -ExecutionPolicy Bypass -File scripts/setup-env-local.ps1"
   },
