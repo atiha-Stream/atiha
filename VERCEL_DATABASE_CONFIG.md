@@ -31,6 +31,11 @@ Assurez-vous que les variables suivantes sont définies dans Vercel :
   - Format : `postgresql://user:password@host:port/database?sslmode=require`
   - Si cette variable est définie, elle sera utilisée en priorité
 
+- **`REDIS_URL`** : URL de connexion Redis (optionnelle)
+  - Format : `redis://[:password@]host:port` ou `rediss://[:password@]host:port` (avec TLS)
+  - Utilisé pour le cache et le rate limiting distribué
+  - L'application fonctionne sans Redis, mais certaines fonctionnalités ne seront pas disponibles
+
 ### 2. Comment Récupérer les Variables depuis Vercel Postgres
 
 1. Allez sur https://vercel.com
@@ -96,4 +101,6 @@ Si l'erreur persiste :
 ## Note Technique
 
 Le fichier `src/lib/db-config.ts` configure automatiquement `DATABASE_URL` à partir de `PRISMA_DATABASE_URL` ou `POSTGRES_URL` si `DATABASE_URL` n'est pas définie. Cela permet une flexibilité dans la configuration.
+
+Le fichier `src/lib/redis-config.ts` configure automatiquement `REDIS_URL` à partir de `atiha_REDIS_URL` (variable préfixée pour Vercel) ou construit l'URL depuis `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` si `REDIS_URL` n'est pas définie. Cela permet une flexibilité similaire pour Redis.
 

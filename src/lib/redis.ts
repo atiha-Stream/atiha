@@ -3,6 +3,7 @@
  * Singleton pour réutiliser la connexion
  */
 
+import './redis-config' // Configurer REDIS_URL avant utilisation
 import Redis from 'ioredis'
 import { logger } from './logger'
 
