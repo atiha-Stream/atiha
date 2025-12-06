@@ -42,6 +42,7 @@
     "test:api:homepage:production": "tsx scripts/test-homepage-api-production.ts",
     "create:test-user:production": "tsx scripts/create-test-user-production.ts",
     "test:db:connection": "tsx scripts/test-database-connection.ts",
+    "test:api:routes": "tsx scripts/test-api-routes.ts",
     "vps:setup": "bash scripts/setup-vps.sh",
     "env:setup": "powershell -ExecutionPolicy Bypass -File scripts/setup-env-local.ps1"
   },
