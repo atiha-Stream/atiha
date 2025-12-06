@@ -78,7 +78,8 @@ class SyncService {
         throw new Error(result.error || 'Erreur API')
       }
 
-      const data = result.data || result[Object.keys(result).find(k => k !== 'success')] || []
+      const alternativeKey = Object.keys(result).find(k => k !== 'success')
+      const data = result.data || (alternativeKey ? result[alternativeKey] : undefined) || []
 
       // 2. Mettre à jour le cache localStorage
       this.setCache(config.cacheKey, data)
