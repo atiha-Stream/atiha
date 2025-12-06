@@ -984,10 +984,13 @@ export class HomepageContentService {
         }
         
       // Migration automatique pour la section Media (séparation homepage/dashboard)
-      if (content.media && typeof content.media.isVisible === 'boolean') {
-        content.media.isVisibleHomepage = content.media.isVisible
-        content.media.isVisibleDashboard = content.media.isVisible
-        delete content.media.isVisible
+      if (content.media) {
+        const mediaAny = content.media as any
+        if (typeof mediaAny.isVisible === 'boolean') {
+          content.media.isVisibleHomepage = mediaAny.isVisible
+          content.media.isVisibleDashboard = mediaAny.isVisible
+          delete mediaAny.isVisible
+        }
       }
       
       // Migration automatique pour la section NewReleases (ajout des contentTypes)
