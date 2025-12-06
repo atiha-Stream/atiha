@@ -923,12 +923,13 @@ export class HomepageContentService {
           // Migration automatique pour availableOn (mobile/tablet/desktop -> title/vrHeadset/tv)
           if (content.footer.availableOn) {
             // Si les anciennes propriétés existent, migrer vers les nouvelles
-            if (content.footer.availableOn.mobile || content.footer.availableOn.tablet || content.footer.availableOn.desktop) {
+            const availableOnAny = content.footer.availableOn as any
+            if ('mobile' in availableOnAny || 'tablet' in availableOnAny || 'desktop' in availableOnAny) {
               // Migrer mobile vers title si title n'existe pas
-              if (!content.footer.availableOn.title && content.footer.availableOn.mobile) {
+              if (!content.footer.availableOn.title && availableOnAny.mobile) {
                 content.footer.availableOn.title = {
-                  text: content.footer.availableOn.mobile.text || 'Titre',
-                  isVisible: content.footer.availableOn.mobile.isVisible !== false
+                  text: availableOnAny.mobile.text || 'Titre',
+                  isVisible: availableOnAny.mobile.isVisible !== false
                 }
               }
               // Initialiser vrHeadset et tv avec les valeurs par défaut si elles n'existent pas
@@ -939,9 +940,9 @@ export class HomepageContentService {
                 content.footer.availableOn.tv = this.DEFAULT_CONTENT.footer.availableOn.tv
               }
               // Supprimer les anciennes propriétés
-              delete content.footer.availableOn.mobile
-              delete content.footer.availableOn.tablet
-              delete content.footer.availableOn.desktop
+              delete availableOnAny.mobile
+              delete availableOnAny.tablet
+              delete availableOnAny.desktop
             } else {
               // Si les nouvelles propriétés n'existent pas, utiliser les valeurs par défaut
               if (!content.footer.availableOn.title) {
