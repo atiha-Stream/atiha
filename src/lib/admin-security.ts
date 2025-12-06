@@ -414,75 +414,114 @@ class AdminSecurity {
     }
 
     // Charger les identifiants
-    let credentials = this.loadCredentials()
-    if (!credentials) {
-      // Si les credentials ne sont pas chargés, essayer de les initialiser une dernière fois
-      // (peut-être qu'ils n'ont pas été initialisés au démarrage)
-      this.initialize()
-      const retryCredentials = this.loadCredentials()
-      
-      if (!retryCredentials) {
-        this.recordLoginAttempt(false, username, 'Identifiants non trouvés')
-        return {
-          success: false,
-          message: 'Erreur de configuration système. Veuillez redémarrer le serveur de développement.'
-        }
-      }
-      
-      credentials = retryCredentials
-    }
-
-    // Vérifier les identifiants dans la nouvelle base de données unifiée
-    const adminUser = userDatabase.getAdminByUsername(username)
+    // Côté serveur (production), utiliser les variables d'environnement
+    // Côté client (développement), utiliser localStorage
+    const isServer = typeof window === 'undefined'
+    let credentials: AdminCredentials | null = null
     
-    if (!adminUser || !adminUser.isActive) {
-      this.recordLoginAttempt(false, username, 'Utilisateur non trouvé ou inactif')
-      try {
-        const lockoutData = SecureStorage.getItemJSON<{ attempts: number }>(this.LOCKOUT_KEY) || { attempts: 0 }
-        const remainingAttempts = this.loadSettings().maxLoginAttempts - lockoutData.attempts - 1
-        
-        return {
-          success: false,
-          message: 'Identifiants incorrects',
-          remainingAttempts: Math.max(0, remainingAttempts)
-        }
-      } catch (error) {
-        return {
-          success: false,
-          message: 'Identifiants incorrects',
-          remainingAttempts: this.loadSettings().maxLoginAttempts - 1
-        }
+    if (isServer) {
+      // Côté serveur : utiliser les variables d'environnement
+      credentials = this.getCredentialsFromEnv()
+    } else {
+      // Côté client : utiliser localStorage
+      credentials = this.loadCredentials()
+      if (!credentials) {
+        // Si les credentials ne sont pas chargés, essayer de les initialiser une dernière fois
+        this.initialize()
+        credentials = this.loadCredentials()
+      }
+    }
+    
+    if (!credentials) {
+      this.recordLoginAttempt(false, username, 'Identifiants non trouvés')
+      return {
+        success: false,
+        message: isServer 
+          ? 'Erreur de configuration système. Vérifiez les variables d\'environnement ADMIN_USERNAME, ADMIN_PASSWORD, ADMIN_SECURITY_CODE.'
+          : 'Erreur de configuration système. Veuillez redémarrer le serveur de développement.'
       }
     }
 
-    // 🔐 Vérifier le mot de passe avec bcrypt (compatible avec les anciens mots de passe en clair)
+    // Vérifier les identifiants
+    // Côté serveur : utiliser directement les credentials depuis les variables d'environnement
+    // Côté client : vérifier dans la base de données unifiée (localStorage)
     let isValid = false
     
-    // Helper pour détecter si un mot de passe est haché
-    const isPasswordHashed = (pwd: string): boolean => {
-      return pwd.startsWith('$2a$') || pwd.startsWith('$2b$') || pwd.startsWith('$2y$')
-    }
-
-    if (isPasswordHashed(adminUser.password)) {
-      // Mot de passe haché avec bcrypt
+    if (isServer) {
+      // Côté serveur : comparer directement avec les variables d'environnement
+      if (username !== credentials.username) {
+        this.recordLoginAttempt(false, username, 'Nom d\'utilisateur incorrect')
+        return {
+          success: false,
+          message: 'Identifiants incorrects'
+        }
+      }
+      
+      // Vérifier le mot de passe
       const { EncryptionService } = await import('./encryption-service')
-      isValid = await EncryptionService.verifyPassword(password, adminUser.password)
+      
+      // Le mot de passe peut être en clair dans les variables d'environnement ou haché
+      const isPasswordHashed = (pwd: string): boolean => {
+        return pwd.startsWith('$2a$') || pwd.startsWith('$2b$') || pwd.startsWith('$2y$')
+      }
+      
+      if (isPasswordHashed(credentials.password)) {
+        // Mot de passe haché avec bcrypt
+        isValid = await EncryptionService.verifyPassword(password, credentials.password)
+      } else {
+        // Mot de passe en clair (comparaison directe)
+        isValid = credentials.password === password
+      }
     } else {
-      // Ancien mot de passe en clair (compatibilité pendant la migration)
-      if (adminUser.password === password) {
-        isValid = true
-        // Migrer automatiquement vers bcrypt
+      // Côté client : vérifier dans la base de données unifiée
+      const adminUser = userDatabase.getAdminByUsername(username)
+      
+      if (!adminUser || !adminUser.isActive) {
+        this.recordLoginAttempt(false, username, 'Utilisateur non trouvé ou inactif')
         try {
-          const { EncryptionService } = await import('./encryption-service')
-          const hashedPassword = await EncryptionService.hashPassword(password)
-          const updateResult = userDatabase.updateAdmin(username, { password: hashedPassword })
-          if (updateResult.success) {
-            if (process.env.NODE_ENV === 'development') {
-              logger.info('Mot de passe admin migré automatiquement vers bcrypt')
-            }
+          const lockoutData = SecureStorage.getItemJSON<{ attempts: number }>(this.LOCKOUT_KEY) || { attempts: 0 }
+          const remainingAttempts = this.loadSettings().maxLoginAttempts - lockoutData.attempts - 1
+          
+          return {
+            success: false,
+            message: 'Identifiants incorrects',
+            remainingAttempts: Math.max(0, remainingAttempts)
           }
         } catch (error) {
-          logger.error('Erreur lors de la migration du mot de passe admin', error)
+          return {
+            success: false,
+            message: 'Identifiants incorrects',
+            remainingAttempts: this.loadSettings().maxLoginAttempts - 1
+          }
+        }
+      }
+
+      // 🔐 Vérifier le mot de passe avec bcrypt (compatible avec les anciens mots de passe en clair)
+      const isPasswordHashed = (pwd: string): boolean => {
+        return pwd.startsWith('$2a$') || pwd.startsWith('$2b$') || pwd.startsWith('$2y$')
+      }
+
+      if (isPasswordHashed(adminUser.password)) {
+        // Mot de passe haché avec bcrypt
+        const { EncryptionService } = await import('./encryption-service')
+        isValid = await EncryptionService.verifyPassword(password, adminUser.password)
+      } else {
+        // Ancien mot de passe en clair (compatibilité pendant la migration)
+        if (adminUser.password === password) {
+          isValid = true
+          // Migrer automatiquement vers bcrypt
+          try {
+            const { EncryptionService } = await import('./encryption-service')
+            const hashedPassword = await EncryptionService.hashPassword(password)
+            const updateResult = userDatabase.updateAdmin(username, { password: hashedPassword })
+            if (updateResult.success) {
+              if (process.env.NODE_ENV === 'development') {
+                logger.info('Mot de passe admin migré automatiquement vers bcrypt')
+              }
+            }
+          } catch (error) {
+            logger.error('Erreur lors de la migration du mot de passe admin', error)
+          }
         }
       }
     }
