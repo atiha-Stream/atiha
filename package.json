@@ -30,6 +30,9 @@
     "verify:subscription": "tsx scripts/verify-subscription-page.ts",
     "verify:admin:premium": "tsx scripts/verify-admin-premium-page.ts",
     "test:display": "tsx scripts/test-display-and-functionality.ts",
+    "test:sync": "tsx scripts/test-sync-bidirectional.ts",
+    "test:sync:full": "tsx scripts/test-sync-full-integration.ts",
+    "test:sync:api": "tsx scripts/test-sync-api-routes.ts",
     "vps:setup": "bash scripts/setup-vps.sh",
     "env:setup": "powershell -ExecutionPolicy Bypass -File scripts/setup-env-local.ps1"
   },
