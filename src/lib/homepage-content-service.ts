@@ -1054,6 +1054,8 @@ export class HomepageContentService {
       
       if (!content.footer) {
           content.footer = {
+            quickLinksTitle: this.DEFAULT_CONTENT.footer.quickLinksTitle,
+            availableOnTitle: this.DEFAULT_CONTENT.footer.availableOnTitle,
             quickLinks: {
               downloadApp: {
                 text: 'Télécharger l\'app',
@@ -1072,16 +1074,29 @@ export class HomepageContentService {
               }
             },
             availableOn: {
-              mobile: {
+              title: {
                 text: 'Mobile (iOS & Android)',
+                modalContent: 'Contenu à définir pour Mobile (iOS & Android)',
                 isVisible: true
               },
-              tablet: {
+              vrHeadset: {
                 text: 'Tablette (iPad & Android)',
+                modalContent: 'Contenu à définir pour Tablette (iPad & Android)',
                 isVisible: true
               },
-              desktop: {
+              tv: {
                 text: 'Ordinateur (Tous navigateurs)',
+                modalContent: 'Contenu à définir pour Ordinateur (Tous navigateurs)',
+                isVisible: true
+              },
+              vrHeadset2: {
+                text: 'Casque virtuel',
+                modalContent: 'Contenu à définir pour Casque virtuel',
+                isVisible: true
+              },
+              tv2: {
+                text: 'Télévision',
+                modalContent: 'Contenu à définir pour Télévision',
                 isVisible: true
               }
             },

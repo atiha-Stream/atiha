@@ -129,6 +129,8 @@ export interface HomepageContent {
     footer: boolean
   }
   footer: {
+    quickLinksTitle?: string
+    availableOnTitle?: string
     quickLinks: {
       downloadApp: {
         text: string
@@ -147,16 +149,34 @@ export interface HomepageContent {
       }
     }
     availableOn: {
-      mobile: {
+      title: {
         text: string
+        url?: string
+        modalContent?: string
         isVisible: boolean
       }
-      tablet: {
+      vrHeadset: {
         text: string
+        url?: string
+        modalContent?: string
         isVisible: boolean
       }
-      desktop: {
+      tv: {
         text: string
+        url?: string
+        modalContent?: string
+        isVisible: boolean
+      }
+      vrHeadset2: {
+        text: string
+        url?: string
+        modalContent?: string
+        isVisible: boolean
+      }
+      tv2: {
+        text: string
+        url?: string
+        modalContent?: string
         isVisible: boolean
       }
     }
