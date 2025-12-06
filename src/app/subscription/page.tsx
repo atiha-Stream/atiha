@@ -7,6 +7,8 @@ import { PlayIcon, ArrowLeftIcon, CheckIcon, XMarkIcon, StarIcon, KeyIcon } from
 import Link from 'next/link'
 import { premiumCodesService, UserPremiumStatus } from '@/lib/premium-codes-service'
 import { subscriptionPriceService } from '@/lib/subscription-price-service'
+import SubscriptionPlanClientService from '@/lib/subscription-plan-client-service'
+import PaymentLinkClientService from '@/lib/payment-link-client-service'
 import HeaderStatusIndicator from '@/components/HeaderStatusIndicator'
 import { HomepageContentService } from '@/lib/homepage-content-service'
 import { SecureStorage } from '@/lib/secure-storage'
@@ -26,11 +28,17 @@ export default function SubscriptionPage() {
   const [selectedPlanType, setSelectedPlanType] = useState<string>('')
   const [activatedCodesThisMonth, setActivatedCodesThisMonth] = useState<any[]>([])
   const [showNoPaymentNotification, setShowNoPaymentNotification] = useState(false)
+  const [subscriptionPlans, setSubscriptionPlans] = useState<any[]>([])
+  const [paymentLinks, setPaymentLinks] = useState<any[]>([])
+  const [isLoadingPlans, setIsLoadingPlans] = useState(true)
 
   useEffect(() => {
     setIsClient(true)
     const loadedContent = HomepageContentService.getContent()
     setContent(loadedContent)
+    
+    // Charger les plans et liens de paiement depuis la base de données
+    loadSubscriptionData()
     
     if (user?.id) {
       const status = premiumCodesService.getUserPremiumStatus(user.id)
@@ -46,6 +54,35 @@ export default function SubscriptionPage() {
       loadActivatedCodesThisMonth()
     }
   }, [user?.id])
+
+  // Charger les données d'abonnement depuis la base de données
+  const loadSubscriptionData = async () => {
+    try {
+      setIsLoadingPlans(true)
+      
+      // Charger les plans d'abonnement
+      const plans = await SubscriptionPlanClientService.getAllPlans()
+      setSubscriptionPlans(plans)
+      
+      // Charger les liens de paiement
+      const links = await PaymentLinkClientService.getAllLinks()
+      setPaymentLinks(links)
+    } catch (error) {
+      logger.error('Error loading subscription data', error as Error)
+      // Fallback vers localStorage si la base de données n'est pas disponible
+      const savedPlans = localStorage.getItem('atiha_subscription_plans')
+      if (savedPlans) {
+        try {
+          const plans = JSON.parse(savedPlans)
+          setSubscriptionPlans([plans.individuel, plans.famille].filter(Boolean))
+        } catch (e) {
+          logger.error('Error parsing saved plans', e as Error)
+        }
+      }
+    } finally {
+      setIsLoadingPlans(false)
+    }
+  }
 
   const loadActivatedCodesThisMonth = () => {
     if (!user?.id) return
@@ -122,8 +159,10 @@ export default function SubscriptionPage() {
     setIsPaymentModalOpen(false)
   }
 
-  const handleProceedToPayment = (planType: string) => {
-    const paymentUrl = getPaymentUrl(planType)
+  const handleProceedToPayment = async (planType: string) => {
+    setSelectedPlanType(planType)
+    
+    const paymentUrl = await getPaymentUrl(planType)
     
     // Vérifier si l'URL de paiement est vide
     if (!paymentUrl || paymentUrl.trim() === '') {
@@ -198,44 +237,36 @@ export default function SubscriptionPage() {
     }
   }, [user?.id])
 
-  // Fonction pour obtenir les informations du plan depuis localStorage
+  // Fonction pour obtenir les informations du plan depuis la base de données
   const getPlanInfo = (planType: string) => {
+    // Chercher le plan dans les données chargées
+    const plan = subscriptionPlans.find((p: any) => p.type === planType && p.isActive)
+    
+    if (plan) {
+      return {
+        title: plan.title,
+        period: plan.period,
+        price: plan.price,
+        commitment: plan.commitment,
+        description: plan.description,
+        features: Array.isArray(plan.features) ? plan.features : [],
+        buttonText: plan.buttonText,
+        buttonColor: plan.buttonColor
+      }
+    }
+    
+    // Fallback vers localStorage si pas trouvé dans la DB
     try {
       const savedPlans = localStorage.getItem('atiha_subscription_plans')
       if (savedPlans) {
         const plans = JSON.parse(savedPlans)
         switch (planType) {
           case 'famille':
-            return plans.famille || {
-              title: 'Famille',
-              period: 'Mensuel',
-              price: '2999 fcfa/mois',
-              commitment: 'Sans engagement',
-              description: 'Ajoutez jusqu\'à 5 membres de votre famille (âgés de 13 ans et plus) à votre foyer.',
-              features: ['Accès rapide', 'Contenu premium', 'Téléchargement hors ligne'],
-              buttonText: 'Passer au paiement',
-              buttonColor: '#10B981'
-            }
+            return plans.famille || getDefaultPlan('famille')
           case 'individuel':
-            return plans.individuel || {
-              title: 'Individuel',
-              period: 'Mensuel',
-              price: '1999 fcfa/mois',
-              commitment: 'Sans engagement',
-              features: ['Accès rapide', 'Contenu premium', 'Téléchargement hors ligne'],
-              buttonText: 'Passer au paiement',
-              buttonColor: '#3B82F6'
-            }
+            return plans.individuel || getDefaultPlan('individuel')
           default:
-            return plans.individuel || {
-              title: 'Individuel',
-              period: 'Mensuel',
-              price: '1999 fcfa/mois',
-              commitment: 'Sans engagement',
-              features: ['Accès rapide', 'Contenu premium', 'Téléchargement hors ligne'],
-              buttonText: 'Passer au paiement',
-              buttonColor: '#3B82F6'
-            }
+            return plans.individuel || getDefaultPlan('individuel')
         }
       }
     } catch (error) {
@@ -243,6 +274,11 @@ export default function SubscriptionPage() {
     }
     
     // Fallback vers les valeurs par défaut
+    return getDefaultPlan(planType)
+  }
+
+  // Fonction helper pour les valeurs par défaut
+  const getDefaultPlan = (planType: string) => {
     switch (planType) {
       case 'famille':
         return {
@@ -256,15 +292,6 @@ export default function SubscriptionPage() {
           buttonColor: '#10B981'
         }
       case 'individuel':
-        return {
-          title: 'Individuel',
-          period: 'Mensuel',
-          price: '1999 fcfa/mois',
-          commitment: 'Sans engagement',
-          features: ['Accès rapide', 'Contenu premium', 'Téléchargement hors ligne'],
-          buttonText: 'Passer au paiement',
-          buttonColor: '#3B82F6'
-        }
       default:
         return {
           title: 'Individuel',
@@ -280,8 +307,13 @@ export default function SubscriptionPage() {
 
   // Fonction pour obtenir la couleur du bouton selon le type de plan
   const getButtonColor = (planType: string) => {
+    const plan = subscriptionPlans.find((p: any) => p.type === planType && p.isActive)
+    if (plan?.buttonColor) {
+      return plan.buttonColor
+    }
+    
+    // Fallback vers localStorage
     try {
-      // Récupérer les plans depuis localStorage
       const savedPlans = localStorage.getItem('atiha_subscription_plans')
       if (savedPlans) {
         const plans = JSON.parse(savedPlans)
@@ -310,36 +342,56 @@ export default function SubscriptionPage() {
   }
 
   // Fonction pour obtenir l'URL de paiement selon le type de plan
-  const getPaymentUrl = (planType: string) => {
+  const getPaymentUrl = async (planType: string): Promise<string> => {
     try {
-      // Récupérer les URLs de paiement configurées
-      const paymentLinks = SecureStorage.getItemJSON<{ individuel: string; famille: string }>('atiha_payment_links')
-      const paymentLinksActive = SecureStorage.getItemJSON<{ individuel: boolean; famille: boolean }>('atiha_payment_links_active')
-      
-      if (paymentLinks && paymentLinksActive) {
-        const links = paymentLinks
-        const activeStates = paymentLinksActive
-        
-        // Utiliser les URLs configurées si elles sont activées
-        if (planType === 'individuel' && activeStates.individuel && links.individuel) {
-          return links.individuel
-        } else if (planType === 'famille' && activeStates.famille && links.famille) {
-          return links.famille
-        }
+      // Chercher dans les liens de paiement chargés depuis la base de données
+      const paymentLink = paymentLinks.find((l: any) => l.planType === planType && l.isActive)
+      if (paymentLink?.url) {
+        return paymentLink.url
       }
       
-      // Fallback : utiliser les anciens plans si pas d'URL configurée
-      const savedPlansStr = localStorage.getItem('atiha_subscription_plans')
-      if (savedPlansStr) {
-        const plans = JSON.parse(savedPlansStr)
-        switch (planType) {
-          case 'famille':
-            return plans.famille?.paymentUrl || ''
-          case 'individuel':
-            return plans.individuel?.paymentUrl || ''
-          default:
-            return plans.individuel?.paymentUrl || ''
+      // Essayer de charger depuis l'API si pas encore chargé
+      const link = await PaymentLinkClientService.getActivePaymentUrl(planType as 'individuel' | 'famille')
+      if (link) {
+        // Mettre à jour le cache local
+        setPaymentLinks(prev => {
+          const existing = prev.find((l: any) => l.planType === planType)
+          if (existing) {
+            return prev.map((l: any) => l.planType === planType ? { ...l, url: link } : l)
+          }
+          return [...prev, { planType, url: link, isActive: true }]
+        })
+        return link
+      }
+      
+      // Fallback : utiliser SecureStorage/localStorage
+      try {
+        const paymentLinksStorage = SecureStorage.getItemJSON<{ individuel: string; famille: string }>('atiha_payment_links')
+        const paymentLinksActive = SecureStorage.getItemJSON<{ individuel: boolean; famille: boolean }>('atiha_payment_links_active')
+        
+        if (paymentLinksStorage && paymentLinksActive) {
+          if (planType === 'individuel' && paymentLinksActive.individuel && paymentLinksStorage.individuel) {
+            return paymentLinksStorage.individuel
+          } else if (planType === 'famille' && paymentLinksActive.famille && paymentLinksStorage.famille) {
+            return paymentLinksStorage.famille
+          }
         }
+        
+        // Fallback : utiliser les anciens plans si pas d'URL configurée
+        const savedPlansStr = localStorage.getItem('atiha_subscription_plans')
+        if (savedPlansStr) {
+          const plans = JSON.parse(savedPlansStr)
+          switch (planType) {
+            case 'famille':
+              return plans.famille?.paymentUrl || ''
+            case 'individuel':
+              return plans.individuel?.paymentUrl || ''
+            default:
+              return plans.individuel?.paymentUrl || ''
+          }
+        }
+      } catch (error) {
+        logger.error('Error reading payment links from storage', error as Error)
       }
     } catch (error) {
       logger.error('Erreur lors de la récupération des URLs de paiement', error as Error)
@@ -391,6 +443,88 @@ export default function SubscriptionPage() {
       case 'plan-premium': return 'bg-yellow-900 text-yellow-300'
       default: return 'bg-gray-900 text-gray-300'
     }
+  }
+
+  // Composant pour le contenu de l'iframe de paiement
+  const PaymentIframeContent = ({ planType }: { planType: string }) => {
+    const [paymentUrl, setPaymentUrl] = useState<string>('')
+    const [isLoading, setIsLoading] = useState(true)
+
+    useEffect(() => {
+      const loadPaymentUrl = async () => {
+        if (!planType) {
+          setIsLoading(false)
+          return
+        }
+        
+        try {
+          setIsLoading(true)
+          // Utiliser directement PaymentLinkClientService pour éviter la dépendance circulaire
+          const url = await PaymentLinkClientService.getActivePaymentUrl(planType as 'individuel' | 'famille')
+          if (url) {
+            setPaymentUrl(url)
+          } else {
+            // Fallback vers SecureStorage
+            try {
+              const paymentLinksStorage = SecureStorage.getItemJSON<{ individuel: string; famille: string }>('atiha_payment_links')
+              const paymentLinksActive = SecureStorage.getItemJSON<{ individuel: boolean; famille: boolean }>('atiha_payment_links_active')
+              
+              if (paymentLinksStorage && paymentLinksActive) {
+                if (planType === 'individuel' && paymentLinksActive.individuel && paymentLinksStorage.individuel) {
+                  setPaymentUrl(paymentLinksStorage.individuel)
+                } else if (planType === 'famille' && paymentLinksActive.famille && paymentLinksStorage.famille) {
+                  setPaymentUrl(paymentLinksStorage.famille)
+                }
+              }
+            } catch (e) {
+              logger.error('Error reading payment links from storage', e as Error)
+            }
+          }
+        } catch (error) {
+          logger.error('Error loading payment URL', error as Error)
+        } finally {
+          setIsLoading(false)
+        }
+      }
+
+      loadPaymentUrl()
+    }, [planType])
+
+    if (isLoading) {
+      return (
+        <div className="bg-dark-300 rounded-lg shadow-lg overflow-hidden h-full flex items-center justify-center">
+          <div className="text-center p-8">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+            <p className="text-gray-400 text-sm">Chargement du paiement...</p>
+          </div>
+        </div>
+      )
+    }
+
+    if (paymentUrl) {
+      return (
+        <div className="bg-white rounded-lg shadow-lg overflow-hidden h-full">
+          <iframe
+            src={paymentUrl}
+            width="100%"
+            height="100%"
+            frameBorder="0"
+            style={{ border: 0, overflow: 'auto' }}
+            allowFullScreen
+            className="rounded-lg"
+          />
+        </div>
+      )
+    }
+
+    return (
+      <div className="bg-dark-300 rounded-lg shadow-lg overflow-hidden h-full flex items-center justify-center">
+        <div className="text-center p-8">
+          <p className="text-gray-400 text-lg mb-2">Aucun moyen de paiement intégré</p>
+          <p className="text-gray-500 text-sm">Le paiement n'est pas disponible pour le moment.</p>
+        </div>
+      </div>
+    )
   }
 
   const renderSubscriptionContent = () => (
@@ -706,26 +840,7 @@ export default function SubscriptionPage() {
 
             {/* Contenu iframe avec fond - occupe tout l'espace restant */}
             <div className="flex-1 p-4 bg-gradient-to-br from-gray-900/30 to-dark-400/30">
-              {getPaymentUrl(selectedPlanType) ? (
-                <div className="bg-white rounded-lg shadow-lg overflow-hidden h-full">
-                  <iframe
-                    src={getPaymentUrl(selectedPlanType)}
-                    width="100%"
-                    height="100%"
-                    frameBorder="0"
-                    style={{ border: 0, overflow: 'auto' }}
-                    allowFullScreen
-                    className="rounded-lg"
-                  />
-                </div>
-              ) : (
-                <div className="bg-dark-300 rounded-lg shadow-lg overflow-hidden h-full flex items-center justify-center">
-                  <div className="text-center p-8">
-                    <p className="text-gray-400 text-lg mb-2">Aucun moyen de paiement intégré</p>
-                    <p className="text-gray-500 text-sm">Le paiement n'est pas disponible pour le moment.</p>
-                  </div>
-                </div>
-              )}
+              <PaymentIframeContent planType={selectedPlanType} />
             </div>
           </div>
         </div>
@@ -835,6 +950,9 @@ export default function SubscriptionPage() {
             <div className="mt-6 p-4 bg-dark-200 rounded-lg">
               <p className="text-gray-300 text-sm text-center">
                 {(() => {
+                  // Chercher dans les plans chargés (si un disclaimer est stocké dans les plans)
+                  // Pour l'instant, utiliser le texte par défaut
+                  // TODO: Ajouter un champ disclaimer dans le modèle SubscriptionPlan si nécessaire
                   try {
                     const savedPlans = localStorage.getItem('atiha_subscription_plans')
                     if (savedPlans) {

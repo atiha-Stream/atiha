@@ -7,6 +7,9 @@ import { PlayIcon, ArrowLeftIcon, PlusIcon, ClipboardDocumentIcon, TrashIcon, Ch
 import Link from 'next/link'
 import { premiumCodesService, PremiumCode } from '@/lib/premium-codes-service'
 import { subscriptionPriceService, SubscriptionPrice } from '@/lib/subscription-price-service'
+import SubscriptionPlanClientService from '@/lib/subscription-plan-client-service'
+import PaymentLinkClientService from '@/lib/payment-link-client-service'
+import PostPaymentLinkService from '@/lib/post-payment-link-client-service'
 import { HomepageContentService } from '@/lib/homepage-content-service'
 import { SecureStorage } from '@/lib/secure-storage'
 import { logger } from '@/lib/logger'
@@ -216,6 +219,8 @@ export default function PremiumCodesPage() {
     loadPostPaymentLinks()
     loadPaymentLinks()
     loadPostPaymentCodes()
+    // Note: Les fonctions loadSubscriptionPlans, loadPostPaymentLinks, loadPaymentLinks sont maintenant async
+    // mais useEffect ne peut pas être async, donc elles sont appelées sans await
   }, [])
 
   const loadCodes = () => {
@@ -348,8 +353,50 @@ export default function PremiumCodesPage() {
   const updateSubscriptionPlans = async () => {
     setIsUpdatingPlans(true)
     try {
-      // Sauvegarder les plans dans localStorage
+      // Sauvegarder dans la base de données
+      const updates: Promise<any>[] = []
+      
+      if (subscriptionPlans.individuel) {
+        updates.push(
+          SubscriptionPlanClientService.upsertPlan({
+            type: 'individuel',
+            title: subscriptionPlans.individuel.title,
+            price: subscriptionPlans.individuel.price,
+            period: subscriptionPlans.individuel.period,
+            commitment: subscriptionPlans.individuel.commitment,
+            description: subscriptionPlans.individuel.description,
+            features: subscriptionPlans.individuel.features,
+            buttonText: subscriptionPlans.individuel.buttonText,
+            buttonColor: subscriptionPlans.individuel.buttonColor,
+            paymentUrl: subscriptionPlans.individuel.paymentUrl,
+            isActive: true
+          })
+        )
+      }
+      
+      if (subscriptionPlans.famille) {
+        updates.push(
+          SubscriptionPlanClientService.upsertPlan({
+            type: 'famille',
+            title: subscriptionPlans.famille.title,
+            price: subscriptionPlans.famille.price,
+            period: subscriptionPlans.famille.period,
+            commitment: subscriptionPlans.famille.commitment,
+            description: subscriptionPlans.famille.description,
+            features: subscriptionPlans.famille.features,
+            buttonText: subscriptionPlans.famille.buttonText,
+            buttonColor: subscriptionPlans.famille.buttonColor,
+            paymentUrl: subscriptionPlans.famille.paymentUrl,
+            isActive: true
+          })
+        )
+      }
+      
+      await Promise.all(updates)
+      
+      // Sauvegarder aussi dans localStorage comme backup
       localStorage.setItem('atiha_subscription_plans', JSON.stringify(subscriptionPlans))
+      
       alert('Plans d\'abonnement mis à jour avec succès!')
     } catch (error) {
       logger.error('Erreur lors de la mise à jour des plans', error as Error)
@@ -359,14 +406,75 @@ export default function PremiumCodesPage() {
     }
   }
 
-  const loadSubscriptionPlans = () => {
+  const loadSubscriptionPlans = async () => {
     try {
-      const savedPlans = localStorage.getItem('atiha_subscription_plans')
-      if (savedPlans) {
-        setSubscriptionPlans(JSON.parse(savedPlans))
+      // Charger depuis la base de données
+      const plans = await SubscriptionPlanClientService.getAllPlans()
+      
+      if (plans && plans.length > 0) {
+        // Convertir les plans de la DB au format attendu par l'interface
+        const plansData: any = {
+          mainTitle: 'Choisissez votre abonnement',
+          individuel: null,
+          famille: null
+        }
+        
+        plans.forEach((plan: any) => {
+          if (plan.type === 'individuel') {
+            plansData.individuel = {
+              title: plan.title,
+              period: plan.period,
+              price: plan.price,
+              commitment: plan.commitment,
+              description: plan.description,
+              features: Array.isArray(plan.features) ? plan.features : [],
+              buttonText: plan.buttonText,
+              paymentUrl: plan.paymentUrl || '',
+              buttonColor: plan.buttonColor
+            }
+          } else if (plan.type === 'famille') {
+            plansData.famille = {
+              title: plan.title,
+              period: plan.period,
+              price: plan.price,
+              commitment: plan.commitment,
+              description: plan.description,
+              features: Array.isArray(plan.features) ? plan.features : [],
+              buttonText: plan.buttonText,
+              paymentUrl: plan.paymentUrl || '',
+              buttonColor: plan.buttonColor
+            }
+          }
+        })
+        
+        // Si les plans existent dans la DB, les utiliser
+        if (plansData.individuel || plansData.famille) {
+          setSubscriptionPlans(plansData)
+        } else {
+          // Sinon, fallback vers localStorage
+          const savedPlans = localStorage.getItem('atiha_subscription_plans')
+          if (savedPlans) {
+            setSubscriptionPlans(JSON.parse(savedPlans))
+          }
+        }
+      } else {
+        // Fallback vers localStorage si pas de plans dans la DB
+        const savedPlans = localStorage.getItem('atiha_subscription_plans')
+        if (savedPlans) {
+          setSubscriptionPlans(JSON.parse(savedPlans))
+        }
       }
     } catch (error) {
       logger.error('Erreur lors du chargement des plans', error as Error)
+      // Fallback vers localStorage en cas d'erreur
+      try {
+        const savedPlans = localStorage.getItem('atiha_subscription_plans')
+        if (savedPlans) {
+          setSubscriptionPlans(JSON.parse(savedPlans))
+        }
+      } catch (e) {
+        logger.error('Erreur lors du chargement depuis localStorage', e as Error)
+      }
     }
   }
 
@@ -395,28 +503,90 @@ export default function PremiumCodesPage() {
     }
   }
 
-  const loadPostPaymentLinks = () => {
+  const loadPostPaymentLinks = async () => {
     try {
-      const savedLinks = SecureStorage.getItemJSON<{ individuel: string; famille: string }>('atiha_post_payment_links')
-      if (savedLinks) {
-        setPostPaymentLinks(savedLinks)
-      }
+      // Charger depuis la base de données
+      const links = await PostPaymentLinkService.getAllLinks()
       
-      const savedActiveStates = SecureStorage.getItemJSON<{ individuel: boolean; famille: boolean }>('atiha_post_payment_links_active')
-      if (savedActiveStates) {
-        setPostPaymentLinksActive(savedActiveStates)
+      if (links && links.length > 0) {
+        const linksData: { individuel: string; famille: string } = { individuel: '', famille: '' }
+        const activeStates: { individuel: boolean; famille: boolean } = { individuel: false, famille: false }
+        
+        links.forEach((link: any) => {
+          if (link.planType === 'individuel') {
+            linksData.individuel = link.url
+            activeStates.individuel = link.isActive
+          } else if (link.planType === 'famille') {
+            linksData.famille = link.url
+            activeStates.famille = link.isActive
+          }
+        })
+        
+        setPostPaymentLinks(linksData)
+        setPostPaymentLinksActive(activeStates)
+      } else {
+        // Fallback vers SecureStorage
+        const savedLinks = SecureStorage.getItemJSON<{ individuel: string; famille: string }>('atiha_post_payment_links')
+        if (savedLinks) {
+          setPostPaymentLinks(savedLinks)
+        }
+        
+        const savedActiveStates = SecureStorage.getItemJSON<{ individuel: boolean; famille: boolean }>('atiha_post_payment_links_active')
+        if (savedActiveStates) {
+          setPostPaymentLinksActive(savedActiveStates)
+        }
       }
     } catch (error) {
       logger.error('Erreur lors du chargement des liens après paiement', error as Error)
+      // Fallback vers SecureStorage en cas d'erreur
+      try {
+        const savedLinks = SecureStorage.getItemJSON<{ individuel: string; famille: string }>('atiha_post_payment_links')
+        if (savedLinks) {
+          setPostPaymentLinks(savedLinks)
+        }
+        
+        const savedActiveStates = SecureStorage.getItemJSON<{ individuel: boolean; famille: boolean }>('atiha_post_payment_links_active')
+        if (savedActiveStates) {
+          setPostPaymentLinksActive(savedActiveStates)
+        }
+      } catch (e) {
+        logger.error('Erreur lors du chargement depuis SecureStorage', e as Error)
+      }
     }
   }
 
   const updatePostPaymentLinks = async () => {
     setIsUpdatingPostPaymentLinks(true)
     try {
-      // Sauvegarder les liens dans SecureStorage
+      // Sauvegarder dans la base de données
+      const updates: Promise<any>[] = []
+      
+      if (postPaymentLinks.individuel) {
+        updates.push(
+          PostPaymentLinkService.upsertLink({
+            planType: 'individuel',
+            url: postPaymentLinks.individuel,
+            isActive: postPaymentLinksActive.individuel
+          })
+        )
+      }
+      
+      if (postPaymentLinks.famille) {
+        updates.push(
+          PostPaymentLinkService.upsertLink({
+            planType: 'famille',
+            url: postPaymentLinks.famille,
+            isActive: postPaymentLinksActive.famille
+          })
+        )
+      }
+      
+      await Promise.all(updates)
+      
+      // Sauvegarder aussi dans SecureStorage comme backup
       SecureStorage.setItem('atiha_post_payment_links', postPaymentLinks)
       SecureStorage.setItem('atiha_post_payment_links_active', postPaymentLinksActive)
+      
       alert('Liens après paiement mis à jour avec succès!')
     } catch (error) {
       logger.error('Erreur lors de la mise à jour des liens', error as Error)
@@ -426,28 +596,92 @@ export default function PremiumCodesPage() {
     }
   }
 
-  const loadPaymentLinks = () => {
+  const loadPaymentLinks = async () => {
     try {
-      const savedLinks = SecureStorage.getItemJSON<{ individuel: string; famille: string }>('atiha_payment_links')
-      if (savedLinks) {
-        setPaymentLinks(savedLinks)
-      }
+      // Charger depuis la base de données
+      const links = await PaymentLinkClientService.getAllLinks()
       
-      const savedActiveStates = SecureStorage.getItemJSON<{ individuel: boolean; famille: boolean }>('atiha_payment_links_active')
-      if (savedActiveStates) {
-        setPaymentLinksActive(savedActiveStates)
+      if (links && links.length > 0) {
+        const linksData: { individuel: string; famille: string } = { individuel: '', famille: '' }
+        const activeStates: { individuel: boolean; famille: boolean } = { individuel: false, famille: false }
+        
+        links.forEach((link: any) => {
+          if (link.planType === 'individuel') {
+            linksData.individuel = link.url
+            activeStates.individuel = link.isActive
+          } else if (link.planType === 'famille') {
+            linksData.famille = link.url
+            activeStates.famille = link.isActive
+          }
+        })
+        
+        setPaymentLinks(linksData)
+        setPaymentLinksActive(activeStates)
+      } else {
+        // Fallback vers SecureStorage
+        const savedLinks = SecureStorage.getItemJSON<{ individuel: string; famille: string }>('atiha_payment_links')
+        if (savedLinks) {
+          setPaymentLinks(savedLinks)
+        }
+        
+        const savedActiveStates = SecureStorage.getItemJSON<{ individuel: boolean; famille: boolean }>('atiha_payment_links_active')
+        if (savedActiveStates) {
+          setPaymentLinksActive(savedActiveStates)
+        }
       }
     } catch (error) {
       logger.error('Erreur lors du chargement des liens de paiement', error as Error)
+      // Fallback vers SecureStorage en cas d'erreur
+      try {
+        const savedLinks = SecureStorage.getItemJSON<{ individuel: string; famille: string }>('atiha_payment_links')
+        if (savedLinks) {
+          setPaymentLinks(savedLinks)
+        }
+        
+        const savedActiveStates = SecureStorage.getItemJSON<{ individuel: boolean; famille: boolean }>('atiha_payment_links_active')
+        if (savedActiveStates) {
+          setPaymentLinksActive(savedActiveStates)
+        }
+      } catch (e) {
+        logger.error('Erreur lors du chargement depuis SecureStorage', e as Error)
+      }
     }
   }
 
   const updatePaymentLinks = async () => {
     setIsUpdatingPaymentLinks(true)
     try {
-      // Sauvegarder les liens dans SecureStorage
+      // Sauvegarder dans la base de données
+      const updates: Promise<any>[] = []
+      
+      if (paymentLinks.individuel) {
+        updates.push(
+          PaymentLinkClientService.upsertLink({
+            planType: 'individuel',
+            url: paymentLinks.individuel,
+            isActive: paymentLinksActive.individuel,
+            createdBy: admin?.email || 'admin'
+          })
+        )
+      }
+      
+      if (paymentLinks.famille) {
+        updates.push(
+          PaymentLinkClientService.upsertLink({
+            planType: 'famille',
+            url: paymentLinks.famille,
+            isActive: paymentLinksActive.famille,
+            createdBy: admin?.email || 'admin'
+          })
+        )
+      }
+      
+      await Promise.all(updates)
+      
+      // Sauvegarder aussi dans SecureStorage comme backup
       SecureStorage.setItem('atiha_payment_links', paymentLinks)
       SecureStorage.setItem('atiha_payment_links_active', paymentLinksActive)
+      
       alert('Liens de paiement mis à jour avec succès!')
     } catch (error) {
       logger.error('Erreur lors de la mise à jour des liens de paiement', error as Error)
@@ -457,7 +691,7 @@ export default function PremiumCodesPage() {
     }
   }
 
-  const togglePaymentLink = (type: 'individuel' | 'famille') => {
+  const togglePaymentLink = async (type: 'individuel' | 'famille') => {
     if (!paymentLinks[type].trim()) {
       alert('Veuillez entrer un lien valide avant de l\'activer')
       return
@@ -470,15 +704,27 @@ export default function PremiumCodesPage() {
 
     setPaymentLinksActive(newActiveState)
 
-    // Sauvegarder immédiatement les liens ET l'état
-    SecureStorage.setItem('atiha_payment_links', paymentLinks)
-    SecureStorage.setItem('atiha_payment_links_active', newActiveState)
-    
-    // Message de confirmation
-    alert(`Lien ${type} ${newActiveState[type] ? 'activé' : 'désactivé'} et sauvegardé avec succès!`)
+    try {
+      // Sauvegarder dans la base de données
+      await PaymentLinkClientService.upsertLink({
+        planType: type,
+        url: paymentLinks[type],
+        isActive: newActiveState[type],
+        createdBy: admin?.email || 'admin'
+      })
+      
+      // Sauvegarder aussi dans SecureStorage comme backup
+      SecureStorage.setItem('atiha_payment_links', paymentLinks)
+      SecureStorage.setItem('atiha_payment_links_active', newActiveState)
+      
+      alert(`Lien ${type} ${newActiveState[type] ? 'activé' : 'désactivé'} et sauvegardé avec succès!`)
+    } catch (error) {
+      logger.error(`Error toggling payment link for ${type}`, error as Error)
+      alert('Erreur lors de la sauvegarde du lien')
+    }
   }
 
-  const togglePostPaymentLink = (type: 'individuel' | 'famille') => {
+  const togglePostPaymentLink = async (type: 'individuel' | 'famille') => {
     if (!postPaymentLinks[type].trim()) {
       alert('Veuillez entrer un lien valide avant de l\'activer')
       return
@@ -491,12 +737,23 @@ export default function PremiumCodesPage() {
 
     setPostPaymentLinksActive(newActiveState)
 
-    // Sauvegarder immédiatement les liens ET l'état
-    SecureStorage.setItem('atiha_post_payment_links', postPaymentLinks)
-    SecureStorage.setItem('atiha_post_payment_links_active', newActiveState)
-    
-    // Message de confirmation
-    alert(`Lien après paiement ${type} ${newActiveState[type] ? 'activé' : 'désactivé'} et sauvegardé avec succès!`)
+    try {
+      // Sauvegarder dans la base de données
+      await PostPaymentLinkService.upsertLink({
+        planType: type,
+        url: postPaymentLinks[type],
+        isActive: newActiveState[type]
+      })
+      
+      // Sauvegarder aussi dans SecureStorage comme backup
+      SecureStorage.setItem('atiha_post_payment_links', postPaymentLinks)
+      SecureStorage.setItem('atiha_post_payment_links_active', newActiveState)
+      
+      alert(`Lien après paiement ${type} ${newActiveState[type] ? 'activé' : 'désactivé'} et sauvegardé avec succès!`)
+    } catch (error) {
+      logger.error(`Error toggling post-payment link for ${type}`, error as Error)
+      alert('Erreur lors de la sauvegarde du lien')
+    }
   }
 
   const loadPostPaymentCodes = () => {

@@ -24,7 +24,13 @@
     "db:studio": "prisma studio",
     "db:seed": "tsx scripts/seed-database.ts",
     "migrate:localStorage-to-db": "tsx scripts/migrate-localStorage-to-db.ts",
-    "vps:setup": "bash scripts/setup-vps.sh"
+    "migrate:subscription-data": "tsx scripts/migrate-subscription-data-server.ts",
+    "test:api:subscription": "tsx scripts/test-subscription-api-routes.ts",
+    "verify:subscription": "tsx scripts/verify-subscription-page.ts",
+    "verify:admin:premium": "tsx scripts/verify-admin-premium-page.ts",
+    "test:display": "tsx scripts/test-display-and-functionality.ts",
+    "vps:setup": "bash scripts/setup-vps.sh",
+    "env:setup": "powershell -ExecutionPolicy Bypass -File scripts/setup-env-local.ps1"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
