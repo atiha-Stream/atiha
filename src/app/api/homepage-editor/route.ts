@@ -15,6 +15,19 @@ import { logger } from '@/lib/logger'
  */
 export async function GET() {
   try {
+    // Vérifier que DATABASE_URL est définie
+    if (!process.env.DATABASE_URL && !process.env.PRISMA_DATABASE_URL && !process.env.POSTGRES_URL) {
+      logger.error('Aucune variable d\'environnement de base de données trouvée')
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Configuration de base de données manquante',
+          details: 'DATABASE_URL, PRISMA_DATABASE_URL ou POSTGRES_URL doit être définie'
+        },
+        { status: 500 }
+      )
+    }
+
     // Récupérer l'enregistrement actif
     const homepageEditor = await prisma.homepageEditor.findFirst({
       where: { isActive: true },
@@ -42,11 +55,28 @@ export async function GET() {
       }
     })
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
     logger.error('Erreur lors de la récupération des données HomepageEditor', error as Error)
+    
+    // Vérifier si c'est une erreur de connexion à la base de données
+    if (errorMessage.includes('datasource') || errorMessage.includes('URL') || errorMessage.includes('connection')) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Erreur de connexion à la base de données',
+          details: process.env.NODE_ENV === 'production' 
+            ? 'Vérifiez que DATABASE_URL est correctement configurée sur Vercel'
+            : errorMessage
+        },
+        { status: 500 }
+      )
+    }
+
     return NextResponse.json(
       { 
         success: false, 
-        error: 'Erreur lors de la récupération des données de la page d\'accueil' 
+        error: 'Erreur lors de la récupération des données de la page d\'accueil',
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
       },
       { status: 500 }
     )

@@ -3,6 +3,9 @@
  * Singleton pour réutiliser la connexion
  */
 
+// Configurer DATABASE_URL avant d'importer Prisma
+import './db-config'
+
 import { PrismaClient } from '@prisma/client'
 import { logger } from './logger'
 

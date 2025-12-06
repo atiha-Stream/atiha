@@ -2,7 +2,7 @@
  * Script pour tester l'API HomepageEditor en production
  */
 
-const PRODUCTION_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://attiha.vercel.app'
+const PRODUCTION_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://atiha.vercel.app'
 const API_URL = `${PRODUCTION_URL}/api/homepage-editor`
 
 async function testHomepageAPIProduction() {
