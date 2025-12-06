@@ -352,6 +352,9 @@ export interface HomepageContent {
 
 export class HomepageContentService {
   private static readonly STORAGE_KEY = 'atiha_homepage_content'
+  private static readonly API_CACHE_KEY = 'atiha_homepage_api_cache'
+  private static readonly CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+  private static apiLoadPromise: Promise<HomepageContent | null> | null = null
 
   // Générer les URLs par défaut basées sur le nom de l'application
   private static generateDefaultSocialLinks(appName: string): HomepageContent['appIdentity']['socialLinks'] {
@@ -769,35 +772,147 @@ export class HomepageContentService {
     lastUpdated: new Date().toISOString()
   }
 
+  // Charger le contenu depuis l'API
+  static async loadContentFromAPI(): Promise<HomepageContent | null> {
+    if (typeof window === 'undefined') {
+      return null
+    }
+
+    // Vérifier le cache
+    try {
+      const cached = sessionStorage.getItem(this.API_CACHE_KEY)
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached)
+        const now = Date.now()
+        if (now - timestamp < this.CACHE_DURATION) {
+          logger.debug('HomepageContent chargé depuis le cache API')
+          return data
+        }
+      }
+    } catch (error) {
+      logger.warn('Erreur lors de la lecture du cache API', error as Error)
+    }
+
+    // Éviter les appels API multiples simultanés
+    if (this.apiLoadPromise) {
+      return this.apiLoadPromise
+    }
+
+    this.apiLoadPromise = (async () => {
+      try {
+        const response = await fetch('/api/homepage-editor')
+        const result = await response.json()
+
+        if (result.success && result.data && result.data.content) {
+          const content = result.data.content as HomepageContent
+          
+          // Mettre en cache
+          try {
+            sessionStorage.setItem(this.API_CACHE_KEY, JSON.stringify({
+              data: content,
+              timestamp: Date.now()
+            }))
+          } catch (error) {
+            logger.warn('Erreur lors de la mise en cache API', error as Error)
+          }
+
+          // Sauvegarder aussi dans localStorage comme fallback
+          try {
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(content))
+          } catch (error) {
+            logger.warn('Erreur lors de la sauvegarde dans localStorage', error as Error)
+          }
+
+          logger.debug('HomepageContent chargé depuis l\'API avec succès')
+          return content
+        }
+
+        return null
+      } catch (error) {
+        logger.error('Erreur lors du chargement depuis l\'API', error as Error)
+        return null
+      } finally {
+        this.apiLoadPromise = null
+      }
+    })()
+
+    return this.apiLoadPromise
+  }
+
+  // Initialiser le contenu depuis l'API (à appeler au démarrage de l'application)
+  static async initializeFromAPI(): Promise<void> {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    try {
+      const content = await this.loadContentFromAPI()
+      if (content) {
+        // Le contenu est déjà mis en cache par loadContentFromAPI
+        // Déclencher un événement pour notifier les composants
+        window.dispatchEvent(new CustomEvent('homepageContentUpdated'))
+      }
+    } catch (error) {
+      logger.error('Erreur lors de l\'initialisation depuis l\'API', error as Error)
+    }
+  }
+
   // Obtenir le contenu de la page d'accueil
   static getContent(): HomepageContent {
     if (typeof window === 'undefined') {
       return this.DEFAULT_CONTENT
     }
 
+    // Essayer d'abord de charger depuis le cache API (sessionStorage)
+    let contentFromCache: HomepageContent | null = null
     try {
-      const stored = localStorage.getItem(this.STORAGE_KEY)
-      if (stored) {
-        const parsed = JSON.parse(stored)
-        const content = { ...this.DEFAULT_CONTENT, ...parsed }
-        
-        // Migration automatique pour appIdentity
-        if (!content.appIdentity) {
-          content.appIdentity = this.DEFAULT_CONTENT.appIdentity
+      const apiCache = sessionStorage.getItem(this.API_CACHE_KEY)
+      if (apiCache) {
+        const { data, timestamp } = JSON.parse(apiCache)
+        const now = Date.now()
+        if (now - timestamp < this.CACHE_DURATION && data) {
+          // Fusionner avec le contenu par défaut
+          contentFromCache = { ...this.DEFAULT_CONTENT, ...data }
         }
-        
-        // Migration automatique pour les liens sociaux
-        if (!content.appIdentity.socialLinks) {
-          content.appIdentity.socialLinks = this.DEFAULT_CONTENT.appIdentity.socialLinks
+      }
+    } catch (error) {
+      logger.warn('Erreur lors de la lecture du cache API', error as Error)
+    }
+
+    // Essayer de charger depuis localStorage si le cache API n'est pas disponible
+    let storedContent: HomepageContent | null = null
+    if (!contentFromCache) {
+      try {
+        const stored = localStorage.getItem(this.STORAGE_KEY)
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          storedContent = { ...this.DEFAULT_CONTENT, ...parsed }
         }
-        
-        // Migration automatique pour les nouvelles sections
-        if (!content.sectionsOrder || content.sectionsOrder.length < 4) {
-          content.sectionsOrder = ['hero', 'features', 'newReleases', 'media']
-        }
-        
-        // Migration automatique pour footer (ajout des titres)
-        if (content.footer) {
+      } catch (error) {
+        logger.warn('Erreur lors de la lecture de localStorage', error as Error)
+      }
+    }
+
+    // Utiliser le contenu du cache API en priorité, sinon localStorage
+    const content = contentFromCache || storedContent
+    if (content) {
+      // Migration automatique pour appIdentity
+      if (!content.appIdentity) {
+        content.appIdentity = this.DEFAULT_CONTENT.appIdentity
+      }
+      
+      // Migration automatique pour les liens sociaux
+      if (!content.appIdentity.socialLinks) {
+        content.appIdentity.socialLinks = this.DEFAULT_CONTENT.appIdentity.socialLinks
+      }
+      
+      // Migration automatique pour les nouvelles sections
+      if (!content.sectionsOrder || content.sectionsOrder.length < 4) {
+        content.sectionsOrder = ['hero', 'features', 'newReleases', 'media']
+      }
+      
+      // Migration automatique pour footer (ajout des titres)
+      if (content.footer) {
           if (!content.footer.quickLinksTitle) {
             content.footer.quickLinksTitle = this.DEFAULT_CONTENT.footer.quickLinksTitle
           }
@@ -867,73 +982,73 @@ export class HomepageContentService {
           }
         }
         
-        // Migration automatique pour la section Media (séparation homepage/dashboard)
-        if (content.media && typeof content.media.isVisible === 'boolean') {
-          content.media.isVisibleHomepage = content.media.isVisible
-          content.media.isVisibleDashboard = content.media.isVisible
-          delete content.media.isVisible
+      // Migration automatique pour la section Media (séparation homepage/dashboard)
+      if (content.media && typeof content.media.isVisible === 'boolean') {
+        content.media.isVisibleHomepage = content.media.isVisible
+        content.media.isVisibleDashboard = content.media.isVisible
+        delete content.media.isVisible
+      }
+      
+      // Migration automatique pour la section NewReleases (ajout des contentTypes)
+      if (content.newReleases && !content.newReleases.contentTypes) {
+        content.newReleases.contentTypes = {
+          collection: true,
+          movies: true,
+          series: true,
+          jeux: true,
+          sports: true,
+          animes: true,
+          tendances: true,
+          documentaires: true,
+          divertissements: true
         }
-        
-        // Migration automatique pour la section NewReleases (ajout des contentTypes)
-        if (content.newReleases && !content.newReleases.contentTypes) {
-          content.newReleases.contentTypes = {
-            collection: true,
-            movies: true,
-            series: true,
-            jeux: true,
-            sports: true,
-            animes: true,
-            tendances: true,
-            documentaires: true,
-            divertissements: true
-          }
+      }
+      
+      // Migration automatique pour sharePage.watchNowButton
+      if (content.sharePage && !content.sharePage.watchNowButton) {
+        content.sharePage.watchNowButton = {
+          text: 'Regarder maintenant',
+          link: '/register'
         }
-        
-        // Migration automatique pour sharePage.watchNowButton
-        if (content.sharePage && !content.sharePage.watchNowButton) {
-          content.sharePage.watchNowButton = {
-            text: 'Regarder maintenant',
-            link: '/register'
-          }
-        }
-        
-        // Migration automatique pour sharePage.showFilmTrailer
-        if (content.sharePage && content.sharePage.showFilmTrailer === undefined) {
-          content.sharePage.showFilmTrailer = true
-        }
-        
-        // Migration automatique pour sharePage.showFilmDetails
-        if (content.sharePage && content.sharePage.showFilmDetails === undefined) {
-          content.sharePage.showFilmDetails = true
-        }
-        
-        // Migration automatique pour sharePage.showFilmImage
-        if (content.sharePage && content.sharePage.showFilmImage === undefined) {
-          content.sharePage.showFilmImage = true
-        }
-        
-        // Migration automatique pour sharePage.showRecentContent
-        if (content.sharePage && content.sharePage.showRecentContent === undefined) {
-          content.sharePage.showRecentContent = true
-        }
-        
-        // Migration automatique pour sharePage.showFinalCTA
-        if (content.sharePage && content.sharePage.showFinalCTA === undefined) {
-          content.sharePage.showFinalCTA = true
-        }
-        
-        if (!content.sectionsVisibility) {
-          content.sectionsVisibility = {
-            hero: true,
-            features: true,
-            newReleases: true,
-            popularMovies: true,
-            popularSeries: true,
-            media: true
-          } as any
-        }
-        
-        if (!content.footer) {
+      }
+      
+      // Migration automatique pour sharePage.showFilmTrailer
+      if (content.sharePage && content.sharePage.showFilmTrailer === undefined) {
+        content.sharePage.showFilmTrailer = true
+      }
+      
+      // Migration automatique pour sharePage.showFilmDetails
+      if (content.sharePage && content.sharePage.showFilmDetails === undefined) {
+        content.sharePage.showFilmDetails = true
+      }
+      
+      // Migration automatique pour sharePage.showFilmImage
+      if (content.sharePage && content.sharePage.showFilmImage === undefined) {
+        content.sharePage.showFilmImage = true
+      }
+      
+      // Migration automatique pour sharePage.showRecentContent
+      if (content.sharePage && content.sharePage.showRecentContent === undefined) {
+        content.sharePage.showRecentContent = true
+      }
+      
+      // Migration automatique pour sharePage.showFinalCTA
+      if (content.sharePage && content.sharePage.showFinalCTA === undefined) {
+        content.sharePage.showFinalCTA = true
+      }
+      
+      if (!content.sectionsVisibility) {
+        content.sectionsVisibility = {
+          hero: true,
+          features: true,
+          newReleases: true,
+          popularMovies: true,
+          popularSeries: true,
+          media: true
+        } as any
+      }
+      
+      if (!content.footer) {
           content.footer = {
             quickLinks: {
               downloadApp: {
@@ -968,22 +1083,19 @@ export class HomepageContentService {
             },
             isVisible: true
           }
-        }
-
-        // Migration automatique pour la section sharePage
-        if (!content.sharePage) {
-          content.sharePage = this.DEFAULT_CONTENT.sharePage
-        } else {
-          // Migration pour paymentPartners si manquant
-          if (!content.sharePage.paymentPartners) {
-            content.sharePage.paymentPartners = this.DEFAULT_CONTENT.sharePage.paymentPartners
-          }
-        }
-        
-        return content
       }
-    } catch (error) {
-      logger.error('Error loading homepage content', error)
+
+      // Migration automatique pour la section sharePage
+      if (!content.sharePage) {
+        content.sharePage = this.DEFAULT_CONTENT.sharePage
+      } else {
+        // Migration pour paymentPartners si manquant
+        if (!content.sharePage.paymentPartners) {
+          content.sharePage.paymentPartners = this.DEFAULT_CONTENT.sharePage.paymentPartners
+        }
+      }
+      
+      return content
     }
 
     return this.DEFAULT_CONTENT

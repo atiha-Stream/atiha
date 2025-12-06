@@ -85,6 +85,11 @@ export default function HomePage() {
     
     window.addEventListener('homepageContentUpdated', handleContentUpdate)
     
+    // Initialiser le contenu depuis l'API (en arrière-plan)
+    HomepageContentService.initializeFromAPI().catch((error) => {
+      logger.error('Erreur lors de l\'initialisation depuis l\'API', error as Error)
+    })
+    
     // Charger les données de contenu
     const loadContentData = async () => {
       try {

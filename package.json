@@ -33,6 +33,12 @@
     "test:sync": "tsx scripts/test-sync-bidirectional.ts",
     "test:sync:full": "tsx scripts/test-sync-full-integration.ts",
     "test:sync:api": "tsx scripts/test-sync-api-routes.ts",
+    "import:homepage": "tsx scripts/import-homepage-editor.ts",
+    "import:homepage:production": "tsx scripts/import-homepage-editor-production.ts",
+    "verify:homepage": "tsx scripts/verify-homepage-editor.ts",
+    "test:api:homepage": "tsx scripts/test-homepage-editor-api.ts",
+    "test:api:homepage:direct": "tsx scripts/test-homepage-editor-api-direct.ts",
+    "test:api:homepage:production": "tsx scripts/test-homepage-api-production.ts",
     "vps:setup": "bash scripts/setup-vps.sh",
     "env:setup": "powershell -ExecutionPolicy Bypass -File scripts/setup-env-local.ps1"
   },
