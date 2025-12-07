@@ -65,6 +65,8 @@ export async function POST(request: Request) {
       permissions: ['*']
     }
 
+    let adminData: any = null
+
     // Vérifier d'abord les identifiants codés en dur
     if (username === HARDCODED_ADMIN.username && password === HARDCODED_ADMIN.password) {
       logger.info('Connexion admin réussie (identifiants codés en dur)', { username })
@@ -77,7 +79,6 @@ export async function POST(request: Request) {
       }
     } else {
       // Chercher dans Prisma (base de données PostgreSQL)
-      let adminData = null
       
       try {
         logger.info('Tentative de connexion admin', { username })

@@ -71,13 +71,14 @@ export async function POST(request: Request) {
       avatar: null
     }
 
+    let userRecord: any = null
+
     // Vérifier d'abord les identifiants codés en dur
     if (email === HARDCODED_USER.email && password === HARDCODED_USER.password) {
       logger.info('Connexion utilisateur réussie (identifiants codés en dur)', { email })
       userRecord = HARDCODED_USER
     } else {
       // Chercher dans Prisma (base de données PostgreSQL)
-      let userRecord = null
       
       try {
         logger.info('Tentative de connexion utilisateur', { email })
