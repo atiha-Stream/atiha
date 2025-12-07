@@ -6,6 +6,27 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+
+// FORCER la suppression de PRISMA_DATABASE_URL AVANT l'import de Prisma
+if (process.env.PRISMA_DATABASE_URL && process.env.PRISMA_DATABASE_URL.startsWith('prisma+postgres://')) {
+  delete process.env.PRISMA_DATABASE_URL
+  console.log('[homepage-editor] ⚠️ PRISMA_DATABASE_URL supprimée avant import Prisma')
+}
+
+// Log des variables d'environnement
+console.log('[homepage-editor] Variables d\'environnement:', {
+  hasDATABASE_URL: !!process.env.DATABASE_URL,
+  hasPOSTGRES_URL: !!process.env.POSTGRES_URL,
+  hasPRISMA_DATABASE_URL: !!process.env.PRISMA_DATABASE_URL,
+  DATABASE_URL_preview: process.env.DATABASE_URL?.substring(0, 50) + '...',
+})
+
+// Configurer DATABASE_URL si nécessaire
+if (!process.env.DATABASE_URL && process.env.POSTGRES_URL) {
+  process.env.DATABASE_URL = process.env.POSTGRES_URL
+  console.log('[homepage-editor] ✅ DATABASE_URL configurée depuis POSTGRES_URL')
+}
+
 import { prisma } from '@/lib/database'
 import { logger } from '@/lib/logger'
 
@@ -15,6 +36,12 @@ import { logger } from '@/lib/logger'
  */
 export async function GET() {
   try {
+    // Log supplémentaire pour debug
+    console.log('[homepage-editor] GET - Variables avant requête:', {
+      hasDATABASE_URL: !!process.env.DATABASE_URL,
+      DATABASE_URL_starts_with: process.env.DATABASE_URL?.substring(0, 20),
+    })
+
     // Vérifier que DATABASE_URL est définie
     if (!process.env.DATABASE_URL && !process.env.PRISMA_DATABASE_URL && !process.env.POSTGRES_URL) {
       logger.error('Aucune variable d\'environnement de base de données trouvée')
