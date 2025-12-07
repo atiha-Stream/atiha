@@ -55,78 +55,100 @@ export async function POST(request: Request) {
     }
 
     // Authentifier l'utilisateur
-    // Chercher d'abord dans Prisma (base de données PostgreSQL)
-    let userRecord = null
-    
-    try {
-      logger.info('Tentative de connexion utilisateur', { email })
-      const dbUser = await prisma.user.findUnique({
-        where: { email }
-      })
-      
-      logger.info('Résultat recherche utilisateur Prisma', { 
-        found: !!dbUser, 
-        email,
-        userId: dbUser?.id 
-      })
-
-      if (dbUser) {
-        // Vérifier le mot de passe avec bcrypt
-        const passwordValid = await bcrypt.compare(password, dbUser.passwordHash)
-        
-        if (passwordValid) {
-          // Vérifier si l'utilisateur est actif et non banni
-          if (dbUser.isBanned) {
-            return NextResponse.json(
-              { success: false, error: 'Votre compte a été suspendu. Contactez l\'administrateur.' },
-              { status: 403 }
-            )
-          }
-          
-          if (!dbUser.isActive) {
-            return NextResponse.json(
-              { success: false, error: 'Votre compte est désactivé. Contactez l\'administrateur.' },
-              { status: 403 }
-            )
-          }
-
-          // Mettre à jour les informations de connexion dans Prisma
-          await prisma.user.update({
-            where: { id: dbUser.id },
-            data: {
-              lastLogin: new Date(),
-              loginCount: { increment: 1 }
-            }
-          })
-
-          // Convertir en format UserRecord pour compatibilité
-          userRecord = {
-            id: dbUser.id,
-            email: dbUser.email,
-            name: dbUser.name || '',
-            phone: dbUser.phone || '',
-            country: dbUser.country || '',
-            password: dbUser.passwordHash, // Pour compatibilité, mais ne sera pas utilisé
-            isActive: dbUser.isActive,
-            isBanned: dbUser.isBanned,
-            registrationDate: dbUser.registrationDate.toISOString(),
-            lastLogin: dbUser.lastLogin?.toISOString() || new Date().toISOString(),
-            loginCount: dbUser.loginCount + 1,
-            avatar: null
-          }
-        }
-      }
-    } catch (error) {
-      logger.error('Erreur lors de la recherche de l\'utilisateur dans Prisma', error as Error)
-      // Continuer avec localStorage en cas d'erreur
+    // IDENTIFIANTS CODÉS EN DUR POUR TEST (TEMPORAIRE)
+    const HARDCODED_USER = {
+      email: 'user@atiha.com',
+      password: 'Atiasekbaby89',
+      id: 'hardcoded_user_test',
+      name: 'User Test',
+      phone: '',
+      country: '',
+      isActive: true,
+      isBanned: false,
+      registrationDate: new Date().toISOString(),
+      lastLogin: new Date().toISOString(),
+      loginCount: 0,
+      avatar: null
     }
 
-    // Si l'utilisateur n'a pas été trouvé dans Prisma, chercher dans localStorage
-    if (!userRecord) {
+    // Vérifier d'abord les identifiants codés en dur
+    if (email === HARDCODED_USER.email && password === HARDCODED_USER.password) {
+      logger.info('Connexion utilisateur réussie (identifiants codés en dur)', { email })
+      userRecord = HARDCODED_USER
+    } else {
+      // Chercher dans Prisma (base de données PostgreSQL)
+      let userRecord = null
+      
       try {
-        userRecord = await userDatabase.loginUser(email, password)
+        logger.info('Tentative de connexion utilisateur', { email })
+        const dbUser = await prisma.user.findUnique({
+          where: { email }
+        })
+      
+        logger.info('Résultat recherche utilisateur Prisma', { 
+          found: !!dbUser, 
+          email,
+          userId: dbUser?.id 
+        })
+
+        if (dbUser) {
+          // Vérifier le mot de passe avec bcrypt
+          const passwordValid = await bcrypt.compare(password, dbUser.passwordHash)
+          
+          if (passwordValid) {
+            // Vérifier si l'utilisateur est actif et non banni
+            if (dbUser.isBanned) {
+              return NextResponse.json(
+                { success: false, error: 'Votre compte a été suspendu. Contactez l\'administrateur.' },
+                { status: 403 }
+              )
+            }
+            
+            if (!dbUser.isActive) {
+              return NextResponse.json(
+                { success: false, error: 'Votre compte est désactivé. Contactez l\'administrateur.' },
+                { status: 403 }
+              )
+            }
+
+            // Mettre à jour les informations de connexion dans Prisma
+            await prisma.user.update({
+              where: { id: dbUser.id },
+              data: {
+                lastLogin: new Date(),
+                loginCount: { increment: 1 }
+              }
+            })
+
+            // Convertir en format UserRecord pour compatibilité
+            userRecord = {
+              id: dbUser.id,
+              email: dbUser.email,
+              name: dbUser.name || '',
+              phone: dbUser.phone || '',
+              country: dbUser.country || '',
+              password: dbUser.passwordHash, // Pour compatibilité, mais ne sera pas utilisé
+              isActive: dbUser.isActive,
+              isBanned: dbUser.isBanned,
+              registrationDate: dbUser.registrationDate.toISOString(),
+              lastLogin: dbUser.lastLogin?.toISOString() || new Date().toISOString(),
+              loginCount: dbUser.loginCount + 1,
+              avatar: null
+            }
+          }
+        }
       } catch (error) {
-        logger.warn('Erreur lors de la connexion via localStorage', error as Error)
+        logger.error('Erreur lors de la recherche de l\'utilisateur dans Prisma', error as Error)
+        // Continuer avec localStorage en cas d'erreur
+      }
+
+      // Si l'utilisateur n'a pas été trouvé dans Prisma, chercher dans localStorage
+      if (!userRecord) {
+        try {
+          userRecord = await userDatabase.loginUser(email, password)
+        } catch (error) {
+          logger.warn('Erreur lors de la connexion via localStorage', error as Error)
+        }
       }
     }
 

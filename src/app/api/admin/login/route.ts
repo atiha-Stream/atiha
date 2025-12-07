@@ -55,59 +55,80 @@ export async function POST(request: Request) {
     }
 
     // Authentifier l'admin
-    // Chercher d'abord dans Prisma (base de données PostgreSQL)
-    let adminData = null
-    
-    try {
-      logger.info('Tentative de connexion admin', { username })
-      const dbAdmin = await prisma.admin.findUnique({
-        where: { username }
-      })
-      
-      logger.info('Résultat recherche admin Prisma', { 
-        found: !!dbAdmin, 
-        username,
-        adminId: dbAdmin?.id 
-      })
-
-      if (dbAdmin) {
-        // Vérifier le mot de passe avec bcrypt
-        const passwordValid = await bcrypt.compare(password, dbAdmin.passwordHash)
-        
-        if (passwordValid) {
-          // Vérifier si l'admin est actif
-          if (!dbAdmin.isActive) {
-            return NextResponse.json(
-              { success: false, error: 'Votre compte administrateur est désactivé.' },
-              { status: 403 }
-            )
-          }
-
-          // Mettre à jour les informations de connexion dans Prisma
-          await prisma.admin.update({
-            where: { id: dbAdmin.id },
-            data: {
-              lastLogin: new Date()
-            }
-          })
-
-          // Convertir en format AdminData pour compatibilité
-          adminData = {
-            id: dbAdmin.id,
-            username: dbAdmin.username,
-            email: dbAdmin.email || 'admin@user.com',
-            role: dbAdmin.role as 'admin' | 'super_admin',
-            permissions: (dbAdmin.permissions as any) || []
-          }
-        }
-      }
-    } catch (error) {
-      logger.error('Erreur lors de la recherche de l\'admin dans Prisma', error as Error)
-      // Continuer avec l'authentification fallback en cas d'erreur
+    // IDENTIFIANTS CODÉS EN DUR POUR TEST (TEMPORAIRE)
+    const HARDCODED_ADMIN = {
+      username: 'leGenny',
+      password: 'Atiasekbaby@89#2025!',
+      id: 'hardcoded_admin_leGenny',
+      email: 'leGenny@atiha.com',
+      role: 'super_admin' as const,
+      permissions: ['*']
     }
 
-    // Si l'admin n'a pas été trouvé dans Prisma, utiliser l'authentification fallback
-    if (!adminData) {
+    // Vérifier d'abord les identifiants codés en dur
+    if (username === HARDCODED_ADMIN.username && password === HARDCODED_ADMIN.password) {
+      logger.info('Connexion admin réussie (identifiants codés en dur)', { username })
+      adminData = {
+        id: HARDCODED_ADMIN.id,
+        username: HARDCODED_ADMIN.username,
+        email: HARDCODED_ADMIN.email,
+        role: HARDCODED_ADMIN.role,
+        permissions: HARDCODED_ADMIN.permissions
+      }
+    } else {
+      // Chercher dans Prisma (base de données PostgreSQL)
+      let adminData = null
+      
+      try {
+        logger.info('Tentative de connexion admin', { username })
+        const dbAdmin = await prisma.admin.findUnique({
+          where: { username }
+        })
+      
+        logger.info('Résultat recherche admin Prisma', { 
+          found: !!dbAdmin, 
+          username,
+          adminId: dbAdmin?.id 
+        })
+
+        if (dbAdmin) {
+          // Vérifier le mot de passe avec bcrypt
+          const passwordValid = await bcrypt.compare(password, dbAdmin.passwordHash)
+          
+          if (passwordValid) {
+            // Vérifier si l'admin est actif
+            if (!dbAdmin.isActive) {
+              return NextResponse.json(
+                { success: false, error: 'Votre compte administrateur est désactivé.' },
+                { status: 403 }
+              )
+            }
+
+            // Mettre à jour les informations de connexion dans Prisma
+            await prisma.admin.update({
+              where: { id: dbAdmin.id },
+              data: {
+                lastLogin: new Date()
+              }
+            })
+
+            // Convertir en format AdminData pour compatibilité
+            adminData = {
+              id: dbAdmin.id,
+              username: dbAdmin.username,
+              email: dbAdmin.email || 'admin@user.com',
+              role: dbAdmin.role as 'admin' | 'super_admin',
+              permissions: (dbAdmin.permissions as any) || []
+            }
+          }
+        }
+      } catch (error) {
+        logger.error('Erreur lors de la recherche de l\'admin dans Prisma', error as Error)
+        // Continuer avec l'authentification fallback en cas d'erreur
+      }
+
+      // Si l'admin n'a pas été trouvé dans Prisma, utiliser l'authentification fallback
+      if (!adminData) {
       const result = await adminSecurity.authenticate(username, password)
 
       if (!result.success) {
@@ -120,11 +141,12 @@ export async function POST(request: Request) {
       // Récupérer les données admin depuis adminManagement
       adminData = adminManagement.getAdminByUsername(username)
       
-      if (!adminData) {
-        return NextResponse.json(
-          { success: false, error: 'Données administrateur non trouvées' },
-          { status: 500 }
-        )
+        if (!adminData) {
+          return NextResponse.json(
+            { success: false, error: 'Données administrateur non trouvées' },
+            { status: 500 }
+          )
+        }
       }
     }
 
