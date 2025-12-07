@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "postinstall": "prisma generate",
-    "build": "node scripts/setup-db-env.js && (prisma db push --accept-data-loss || echo 'Skipping db push') && prisma generate && next build",
+    "build": "node scripts/build-with-optional-db.js",
     "build:local": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
