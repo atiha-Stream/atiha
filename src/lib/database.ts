@@ -29,7 +29,14 @@ const prismaClientSingleton = () => {
   const dbUrlPreview = process.env.DATABASE_URL?.replace(/:[^:@]+@/, ':****@') || 'non définie'
   logger.info(`Initialisation Prisma Client avec DATABASE_URL: ${dbUrlPreview.substring(0, 50)}...`)
   
+  // FORCER l'utilisation de DATABASE_URL en la spécifiant explicitement
+  // Cela empêche Prisma Client d'utiliser automatiquement PRISMA_DATABASE_URL
   return new PrismaClient({
+    datasources: {
+      db: {
+        url: process.env.DATABASE_URL
+      }
+    },
     log: process.env.NODE_ENV === 'development' 
       ? ['query', 'error', 'warn'] 
       : ['error'],

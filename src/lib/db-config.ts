@@ -7,6 +7,15 @@
 // Log des variables disponibles (pour debug)
 const logDebug = process.env.NODE_ENV === 'development' || process.env.VERCEL_ENV === 'production'
 
+// SUPPRIMER PRISMA_DATABASE_URL si elle commence par prisma+postgres://
+// pour forcer l'utilisation de DATABASE_URL
+if (process.env.PRISMA_DATABASE_URL && process.env.PRISMA_DATABASE_URL.startsWith('prisma+postgres://')) {
+  delete process.env.PRISMA_DATABASE_URL
+  if (logDebug) {
+    console.log('[db-config] ⚠️ PRISMA_DATABASE_URL supprimée (prisma+postgres://) pour forcer l\'utilisation de DATABASE_URL')
+  }
+}
+
 if (logDebug) {
   console.log('[db-config] Variables disponibles:', {
     hasDATABASE_URL: !!process.env.DATABASE_URL,
