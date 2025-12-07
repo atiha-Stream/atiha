@@ -6,7 +6,9 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { adminSecurity } from '@/lib/admin-security'
 import { adminManagement } from '@/lib/admin-management'
+import { prisma } from '@/lib/database'
 import { logger } from '@/lib/logger'
+import bcrypt from 'bcryptjs'
 
 /**
  * Comparaison sécurisée contre les attaques par timing
@@ -53,23 +55,70 @@ export async function POST(request: Request) {
     }
 
     // Authentifier l'admin
-    const result = await adminSecurity.authenticate(username, password)
+    // Chercher d'abord dans Prisma (base de données PostgreSQL)
+    let adminData = null
+    
+    try {
+      const dbAdmin = await prisma.admin.findUnique({
+        where: { username }
+      })
 
-    if (!result.success) {
-      return NextResponse.json(
-        { success: false, error: result.message, remainingAttempts: result.remainingAttempts },
-        { status: 401 }
-      )
+      if (dbAdmin) {
+        // Vérifier le mot de passe avec bcrypt
+        const passwordValid = await bcrypt.compare(password, dbAdmin.passwordHash)
+        
+        if (passwordValid) {
+          // Vérifier si l'admin est actif
+          if (!dbAdmin.isActive) {
+            return NextResponse.json(
+              { success: false, error: 'Votre compte administrateur est désactivé.' },
+              { status: 403 }
+            )
+          }
+
+          // Mettre à jour les informations de connexion dans Prisma
+          await prisma.admin.update({
+            where: { id: dbAdmin.id },
+            data: {
+              lastLogin: new Date()
+            }
+          })
+
+          // Convertir en format AdminData pour compatibilité
+          adminData = {
+            id: dbAdmin.id,
+            username: dbAdmin.username,
+            email: dbAdmin.email || 'admin@user.com',
+            role: dbAdmin.role as 'admin' | 'super_admin',
+            permissions: (dbAdmin.permissions as any) || []
+          }
+        }
+      }
+    } catch (error) {
+      logger.error('Erreur lors de la recherche de l\'admin dans Prisma', error as Error)
+      // Continuer avec l'authentification fallback en cas d'erreur
     }
 
-    // Récupérer les données admin
-    const adminData = adminManagement.getAdminByUsername(username)
-    
+    // Si l'admin n'a pas été trouvé dans Prisma, utiliser l'authentification fallback
     if (!adminData) {
-      return NextResponse.json(
-        { success: false, error: 'Données administrateur non trouvées' },
-        { status: 500 }
-      )
+      const result = await adminSecurity.authenticate(username, password)
+
+      if (!result.success) {
+        return NextResponse.json(
+          { success: false, error: result.message, remainingAttempts: result.remainingAttempts },
+          { status: 401 }
+        )
+      }
+
+      // Récupérer les données admin depuis adminManagement
+      adminData = adminManagement.getAdminByUsername(username)
+      
+      if (!adminData) {
+        return NextResponse.json(
+          { success: false, error: 'Données administrateur non trouvées' },
+          { status: 500 }
+        )
+      }
     }
 
     // Générer un token
