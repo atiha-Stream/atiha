@@ -2,13 +2,15 @@
  * Script de build qui gère optionnellement la connexion DB
  */
 
-const { execSync } = require('child_process')
+import { execSync } from 'child_process'
+import { createRequire } from 'module'
+const require = createRequire(import.meta.url)
 
 console.log('🔨 Démarrage du build...\n')
 
 // 1. Configurer DATABASE_URL
 console.log('1️⃣ Configuration DATABASE_URL...')
-require('./setup-db-env.js')
+await import('./setup-db-env.js')
 
 // 2. Tenter db push si DATABASE_URL est définie
 if (process.env.DATABASE_URL) {
