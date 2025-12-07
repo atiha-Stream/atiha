@@ -10,6 +10,15 @@ import { EncryptionService } from './encryption-service'
 import { SecureStorage } from './secure-storage'
 import { logger } from './logger'
 
+// Import Prisma pour l'authentification en production
+let prisma: any = null
+try {
+  // Import dynamique pour éviter les erreurs si Prisma n'est pas disponible
+  prisma = require('./database').prisma
+} catch (error) {
+  // Prisma non disponible, on utilisera le fallback
+}
+
 export interface AdminCredentials {
   username: string
   password: string
@@ -414,11 +423,48 @@ class AdminSecurity {
     }
 
     // Charger les identifiants
-    // Côté serveur (production), utiliser les variables d'environnement
-    // Côté client (développement), utiliser localStorage
+    // PRIORITÉ 1: Essayer Prisma (base de données PostgreSQL) côté serveur
+    // PRIORITÉ 2: Variables d'environnement côté serveur
+    // PRIORITÉ 3: localStorage côté client
     const isServer = typeof window === 'undefined'
     let credentials: AdminCredentials | null = null
+    let prismaAdmin = null
     
+    if (isServer && prisma) {
+      // Côté serveur : essayer d'abord Prisma
+      try {
+        prismaAdmin = await prisma.admin.findUnique({
+          where: { username }
+        })
+        
+        if (prismaAdmin) {
+          // Vérifier le mot de passe avec bcrypt
+          const bcrypt = require('bcryptjs')
+          const passwordValid = await bcrypt.compare(password, prismaAdmin.passwordHash)
+          
+          if (passwordValid && prismaAdmin.isActive) {
+            // Authentification réussie via Prisma
+            this.recordLoginAttempt(true, username)
+            return {
+              success: true,
+              message: 'Connexion réussie'
+            }
+          } else if (!prismaAdmin.isActive) {
+            this.recordLoginAttempt(false, username, 'Compte admin désactivé')
+            return {
+              success: false,
+              message: 'Votre compte administrateur est désactivé.'
+            }
+          }
+          // Si le mot de passe est incorrect, continuer avec les autres méthodes
+        }
+      } catch (error) {
+        logger.error('Erreur lors de la recherche admin dans Prisma', error as Error)
+        // Continuer avec les autres méthodes en cas d'erreur
+      }
+    }
+    
+    // Si Prisma n'a pas fonctionné, essayer les autres méthodes
     if (isServer) {
       // Côté serveur : utiliser les variables d'environnement
       credentials = this.getCredentialsFromEnv()
@@ -437,7 +483,7 @@ class AdminSecurity {
       return {
         success: false,
         message: isServer 
-          ? 'Erreur de configuration système. Vérifiez les variables d\'environnement ADMIN_USERNAME, ADMIN_PASSWORD, ADMIN_SECURITY_CODE.'
+          ? 'Identifiants incorrects. Vérifiez votre nom d\'utilisateur et mot de passe.'
           : 'Erreur de configuration système. Veuillez redémarrer le serveur de développement.'
       }
     }
