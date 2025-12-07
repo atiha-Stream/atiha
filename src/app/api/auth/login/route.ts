@@ -59,8 +59,15 @@ export async function POST(request: Request) {
     let userRecord = null
     
     try {
+      logger.info('Tentative de connexion utilisateur', { email })
       const dbUser = await prisma.user.findUnique({
         where: { email }
+      })
+      
+      logger.info('Résultat recherche utilisateur Prisma', { 
+        found: !!dbUser, 
+        email,
+        userId: dbUser?.id 
       })
 
       if (dbUser) {

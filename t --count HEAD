@@ -1,0 +1,22 @@
+[33m099d338[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m feat: Ajout script pour créer utilisateur et admin initiaux en production
+[33mc9b7f8e[m feat: Ajout script de test des routes API et vérification utilisation Prisma
+[33m5b9bbd3[m feat: Ajout script de test de connexion base de données
+[33m73f78ca[m feat: Ajout support REDIS_URL avec variables préfixées Vercel (atiha_REDIS_URL)
+[33m16f8cb4[m chore: Préparation pour nouveau déploiement - Ajout script build:local et nettoyage fichiers temporaires
+[33m8441f8a[m Fix: Déplacer @types/papaparse vers dependencies pour le build Vercel
+[33meb4c90b[m Fix: Déplacer @types/react, @types/react-dom, @types/node, eslint, eslint-config-next et typescript vers dependencies pour le build Vercel
+[33m323ca7f[m Fix: Déplacer tailwindcss, postcss et autoprefixer vers dependencies pour le build Vercel
+[33mda9a056[m Fix: Support variables d'environnement préfixées atiha_ pour Vercel
+[33m42f20e0[m Fix: Configuration DATABASE_URL pour Vercel et amélioration gestion erreurs HomepageEditor API
+[33m579be66[m Fix: Correction du type footer et de l'initialisation availableOn pour utiliser la nouvelle structure
+[33m054b772[m Fix: Correction de l'erreur TypeScript pour la migration media.isVisible
+[33me5e2cbe[m Fix: Correction de l'erreur TypeScript dans homepage-content-service.ts pour la migration availableOn
+[33m1cd54d5[m feat: Ajout route API HomepageEditor et chargement depuis PostgreSQL
+[33md2ce8f0[m Fix: Correction erreur TypeScript dans sync-service.ts (undefined index)
+[33mba6b177[m feat: Implémentation de la synchronisation bidirectionnelle localStorage  PostgreSQL
+[33m9ff9c8c[m Fix: Utiliser variables d'environnement pour authentification admin côté serveur (production)
+[33m30f90d8[m Trigger: Forcer redéploiement avec migrations Prisma
+[33m0d98764[m Fix: Ajouter postinstall et migrations dans le build pour Vercel
+[33md2b6feb[m Fix: Exclure scripts/ de la compilation TypeScript et corriger le type description dans admin/premium
+[33mcbe1b28[m feat: migration abonnements vers PostgreSQL - API routes, services, pages admin/subscription, tests et documentation
+[33m5ad0aaa[m feat: optimisations performances et corrections TypeScript pour déploiement Vercel

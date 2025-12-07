@@ -59,8 +59,15 @@ export async function POST(request: Request) {
     let adminData = null
     
     try {
+      logger.info('Tentative de connexion admin', { username })
       const dbAdmin = await prisma.admin.findUnique({
         where: { username }
+      })
+      
+      logger.info('Résultat recherche admin Prisma', { 
+        found: !!dbAdmin, 
+        username,
+        adminId: dbAdmin?.id 
       })
 
       if (dbAdmin) {

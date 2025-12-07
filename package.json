@@ -45,6 +45,7 @@
     "test:db:connection": "tsx scripts/test-database-connection.ts",
     "test:api:routes": "tsx scripts/test-api-routes.ts",
     "create:initial-users:production": "tsx scripts/create-initial-users-production.ts",
+    "test:login": "tsx scripts/test-login.ts",
     "resolve:migration": "tsx scripts/resolve-failed-migration.ts",
     "vps:setup": "bash scripts/setup-vps.sh",
     "env:setup": "powershell -ExecutionPolicy Bypass -File scripts/setup-env-local.ps1"
