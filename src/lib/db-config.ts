@@ -5,7 +5,8 @@
  */
 
 // Log des variables disponibles (pour debug)
-const logDebug = process.env.NODE_ENV === 'development' || process.env.VERCEL_ENV === 'production'
+// TOUJOURS logger en production pour debug
+const logDebug = true // Toujours activer les logs pour debug
 
 // SUPPRIMER PRISMA_DATABASE_URL si elle commence par prisma+postgres://
 // pour forcer l'utilisation de DATABASE_URL
