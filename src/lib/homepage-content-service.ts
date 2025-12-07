@@ -773,11 +773,19 @@ export class HomepageContentService {
   }
 
   // Charger le contenu depuis l'API
+  // TEMPORAIREMENT DÉSACTIVÉ : Problème Prisma avec PRISMA_DATABASE_URL
   static async loadContentFromAPI(): Promise<HomepageContent | null> {
     if (typeof window === 'undefined') {
       return null
     }
 
+    // TEMPORAIREMENT DÉSACTIVÉ - Utiliser uniquement localStorage
+    // TODO: Réactiver une fois le problème Prisma résolu
+    logger.warn('loadContentFromAPI désactivé temporairement - Utilisation de localStorage uniquement')
+    return null
+
+    // Code désactivé :
+    /*
     // Vérifier le cache
     try {
       const cached = sessionStorage.getItem(this.API_CACHE_KEY)
@@ -837,14 +845,23 @@ export class HomepageContentService {
     })()
 
     return this.apiLoadPromise
+    */
   }
 
   // Initialiser le contenu depuis l'API (à appeler au démarrage de l'application)
+  // TEMPORAIREMENT DÉSACTIVÉ : Problème Prisma avec PRISMA_DATABASE_URL
   static async initializeFromAPI(): Promise<void> {
     if (typeof window === 'undefined') {
       return
     }
 
+    // TEMPORAIREMENT DÉSACTIVÉ - Utiliser uniquement localStorage
+    // TODO: Réactiver une fois le problème Prisma résolu
+    logger.warn('initializeFromAPI désactivé temporairement - Utilisation de localStorage uniquement')
+    return
+
+    // Code désactivé :
+    /*
     try {
       const content = await this.loadContentFromAPI()
       if (content) {
@@ -855,6 +872,7 @@ export class HomepageContentService {
     } catch (error) {
       logger.error('Erreur lors de l\'initialisation depuis l\'API', error as Error)
     }
+    */
   }
 
   // Obtenir le contenu de la page d'accueil
