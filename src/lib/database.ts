@@ -9,8 +9,26 @@ import './db-config'
 import { PrismaClient } from '@prisma/client'
 import { logger } from './logger'
 
+// Vérifier que DATABASE_URL est bien définie avant d'initialiser Prisma
+if (!process.env.DATABASE_URL) {
+  const error = new Error('DATABASE_URL n\'est pas définie. Vérifiez les variables d\'environnement.')
+  logger.error('Erreur de configuration Prisma', error)
+  throw error
+}
+
+// Vérifier que DATABASE_URL est une URL PostgreSQL valide (pas prisma+postgres://)
+if (process.env.DATABASE_URL.startsWith('prisma+postgres://') || process.env.DATABASE_URL.startsWith('prisma://')) {
+  const error = new Error('DATABASE_URL ne doit pas commencer par prisma:// ou prisma+postgres://. Utilisez POSTGRES_URL ou une URL postgres:// standard.')
+  logger.error('Erreur de configuration Prisma', error)
+  throw error
+}
+
 // Extension du PrismaClient pour le logging
 const prismaClientSingleton = () => {
+  // Log de l'URL utilisée (sans les credentials)
+  const dbUrlPreview = process.env.DATABASE_URL?.replace(/:[^:@]+@/, ':****@') || 'non définie'
+  logger.info(`Initialisation Prisma Client avec DATABASE_URL: ${dbUrlPreview.substring(0, 50)}...`)
+  
   return new PrismaClient({
     log: process.env.NODE_ENV === 'development' 
       ? ['query', 'error', 'warn'] 
